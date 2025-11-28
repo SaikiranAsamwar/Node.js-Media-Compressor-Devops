@@ -1,0 +1,62 @@
+- hosts: eks_nodes
+  become: yes
+  vars:
+    aws_region: "us-east-1"
+    backend_ecr_repo: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/saikiranasamwar4/media-compressor-backend"
+    frontend_ecr_repo: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/saikiranasamwar4/media-compressor-frontend"
+    image_tag: "latest"
+    eks_cluster: "media-compressor-cluster"
+  tasks:
+    - name: Install kubectl
+      get_url:
+        url: "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+
+    - name: Install AWS CLI
+      apt:
+        name: awscli
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install eksctl
+      get_url:
+        url: "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_Linux_amd64.tar.gz"
+        dest: /tmp/eksctl.tar.gz
+    
+    - name: Extract eksctl
+      unarchive:
+        src: /tmp/eksctl.tar.gz
+        dest: /usr/local/bin
+        remote_src: yes
+
+    - name: Update kubeconfig for EKS
+      shell: |
+        aws eks update-kubeconfig --region {{ aws_region }} --name {{ eks_cluster }}
+      args:
+        executable: /bin/bash
+
+    - name: Deploy monitoring namespace
+      k8s:
+        name: monitoring
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Deploy Prometheus
+      k8s:
+        state: present
+        definition:
+          src: k8s/prometheus/
+
+    - name: Deploy Grafana
+      k8s:
+        state: present
+        definition:
+          src: k8s/grafana-deployment.yaml
+
+    - name: Deploy application
+      shell: |
+        kubectl apply -f k8s/
+      args:
+        executable: /bin/bash

@@ -1,0 +1,455 @@
+---
+- name: Setup Monitoring Stack (Prometheus & Grafana)
+  hosts: local
+  gather_facts: true
+  
+  vars:
+    monitoring_namespace: "monitoring"
+    prometheus_retention: "30d"
+    grafana_admin_password: "admin123"
+
+  tasks:
+    - name: Create monitoring namespace
+      k8s:
+        name: "{{ monitoring_namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+        definition:
+          metadata:
+            labels:
+              name: "{{ monitoring_namespace }}"
+              purpose: monitoring
+
+    - name: Create Prometheus ConfigMap
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: prometheus-config
+            namespace: "{{ monitoring_namespace }}"
+          data:
+            prometheus.yml: |
+              global:
+                scrape_interval: 15s
+                evaluation_interval: 15s
+
+              rule_files:
+                - "alert_rules.yml"
+
+              scrape_configs:
+                - job_name: 'prometheus'
+                  static_configs:
+                    - targets: ['localhost:9090']
+
+                - job_name: 'kubernetes-apiservers'
+                  kubernetes_sd_configs:
+                    - role: endpoints
+                  scheme: https
+                  tls_config:
+                    ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                  bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+                  relabel_configs:
+                    - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+                      action: keep
+                      regex: default;kubernetes;https
+
+                - job_name: 'kubernetes-nodes'
+                  scheme: https
+                  tls_config:
+                    ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+                  bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+                  kubernetes_sd_configs:
+                    - role: node
+                  relabel_configs:
+                    - action: labelmap
+                      regex: __meta_kubernetes_node_label_(.+)
+
+                - job_name: 'kubernetes-pods'
+                  kubernetes_sd_configs:
+                    - role: pod
+                  relabel_configs:
+                    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                      action: keep
+                      regex: true
+                    - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                      action: replace
+                      target_label: __metrics_path__
+                      regex: (.+)
+                    - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+                      action: replace
+                      regex: ([^:]+)(?::\d+)?;(\d+)
+                      replacement: $1:$2
+                      target_label: __address__
+
+                - job_name: 'media-compressor-backend'
+                  static_configs:
+                    - targets: ['backend-service.media-compressor.svc.cluster.local:3000']
+                  metrics_path: '/metrics'
+                  scrape_interval: 30s
+
+            alert_rules.yml: |
+              groups:
+                - name: media-compressor-alerts
+                  rules:
+                    - alert: BackendDown
+                      expr: up{job="media-compressor-backend"} == 0
+                      for: 1m
+                      labels:
+                        severity: critical
+                        service: backend
+                      annotations:
+                        summary: "Media Compressor Backend is down"
+                        description: "Backend service has been down for more than 1 minute"
+
+                    - alert: HighCPUUsage
+                      expr: rate(container_cpu_usage_seconds_total{namespace="media-compressor"}[5m]) > 0.8
+                      for: 5m
+                      labels:
+                        severity: warning
+                      annotations:
+                        summary: "High CPU usage detected"
+                        description: "CPU usage is above 80% for 5 minutes"
+
+                    - alert: HighMemoryUsage
+                      expr: container_memory_usage_bytes{namespace="media-compressor"} / container_spec_memory_limit_bytes > 0.9
+                      for: 5m
+                      labels:
+                        severity: warning
+                      annotations:
+                        summary: "High memory usage detected"
+                        description: "Memory usage is above 90% for 5 minutes"
+
+                    - alert: PodCrashLooping
+                      expr: rate(kube_pod_container_status_restarts_total{namespace="media-compressor"}[15m]) > 0
+                      for: 5m
+                      labels:
+                        severity: critical
+                      annotations:
+                        summary: "Pod is crash looping"
+                        description: "Pod {{ $labels.pod }} is restarting frequently"
+
+    - name: Deploy Prometheus
+      k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: prometheus-server
+            namespace: "{{ monitoring_namespace }}"
+            labels:
+              app: prometheus
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: prometheus
+            template:
+              metadata:
+                labels:
+                  app: prometheus
+              spec:
+                serviceAccountName: prometheus-server
+                securityContext:
+                  fsGroup: 2000
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                containers:
+                - name: prometheus
+                  image: prom/prometheus:v2.45.0
+                  ports:
+                  - containerPort: 9090
+                  args:
+                    - '--config.file=/etc/prometheus/prometheus.yml'
+                    - '--storage.tsdb.path=/prometheus/'
+                    - '--web.console.libraries=/etc/prometheus/console_libraries'
+                    - '--web.console.templates=/etc/prometheus/consoles'
+                    - '--storage.tsdb.retention.time={{ prometheus_retention }}'
+                    - '--web.enable-lifecycle'
+                    - '--web.enable-admin-api'
+                  volumeMounts:
+                  - name: prometheus-config
+                    mountPath: /etc/prometheus
+                  - name: prometheus-storage
+                    mountPath: /prometheus
+                  resources:
+                    requests:
+                      memory: "512Mi"
+                      cpu: "200m"
+                    limits:
+                      memory: "2Gi"
+                      cpu: "1000m"
+                  livenessProbe:
+                    httpGet:
+                      path: /-/healthy
+                      port: 9090
+                    initialDelaySeconds: 30
+                    timeoutSeconds: 10
+                  readinessProbe:
+                    httpGet:
+                      path: /-/ready
+                      port: 9090
+                    initialDelaySeconds: 5
+                    timeoutSeconds: 10
+                volumes:
+                - name: prometheus-config
+                  configMap:
+                    name: prometheus-config
+                - name: prometheus-storage
+                  emptyDir: {}
+
+    - name: Create Prometheus Service Account and RBAC
+      k8s:
+        state: present
+        definition: "{{ item }}"
+      loop:
+        - apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: prometheus-server
+            namespace: "{{ monitoring_namespace }}"
+        - apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: prometheus
+          rules:
+          - apiGroups: [""]
+            resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["extensions"]
+            resources: ["ingresses"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["apps"]
+            resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+            verbs: ["get", "list", "watch"]
+          - nonResourceURLs: ["/metrics"]
+            verbs: ["get"]
+        - apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: prometheus
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: prometheus
+          subjects:
+          - kind: ServiceAccount
+            name: prometheus-server
+            namespace: "{{ monitoring_namespace }}"
+
+    - name: Create Prometheus Service
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: prometheus-service
+            namespace: "{{ monitoring_namespace }}"
+            labels:
+              app: prometheus
+          spec:
+            selector:
+              app: prometheus
+            ports:
+            - port: 9090
+              targetPort: 9090
+              protocol: TCP
+            type: ClusterIP
+
+    - name: Create Grafana ConfigMap
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: grafana-config
+            namespace: "{{ monitoring_namespace }}"
+          data:
+            datasources.yaml: |
+              apiVersion: 1
+              datasources:
+                - name: Prometheus
+                  type: prometheus
+                  access: proxy
+                  url: http://prometheus-service:9090
+                  isDefault: true
+                  editable: true
+            
+            dashboards.yaml: |
+              apiVersion: 1
+              providers:
+                - name: 'default'
+                  orgId: 1
+                  folder: ''
+                  type: file
+                  disableDeletion: false
+                  updateIntervalSeconds: 10
+                  allowUiUpdates: true
+                  options:
+                    path: /var/lib/grafana/dashboards
+            
+            media-compressor-dashboard.json: |
+              {
+                "dashboard": {
+                  "id": null,
+                  "title": "Media Compressor Application",
+                  "tags": ["media-compressor"],
+                  "timezone": "browser",
+                  "panels": [
+                    {
+                      "id": 1,
+                      "title": "Pod Status",
+                      "type": "stat",
+                      "targets": [
+                        {
+                          "expr": "kube_pod_status_ready{namespace=\"media-compressor\"}",
+                          "legendFormat": "{{pod}}"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 2,
+                      "title": "HTTP Request Rate",
+                      "type": "graph",
+                      "targets": [
+                        {
+                          "expr": "rate(http_requests_total{job=\"media-compressor-backend\"}[5m])",
+                          "legendFormat": "{{method}} {{status_code}}"
+                        }
+                      ]
+                    }
+                  ],
+                  "time": {
+                    "from": "now-1h",
+                    "to": "now"
+                  },
+                  "refresh": "10s"
+                }
+              }
+
+    - name: Deploy Grafana
+      k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: grafana
+            namespace: "{{ monitoring_namespace }}"
+            labels:
+              app: grafana
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: grafana
+            template:
+              metadata:
+                labels:
+                  app: grafana
+              spec:
+                securityContext:
+                  fsGroup: 472
+                  runAsUser: 472
+                containers:
+                - name: grafana
+                  image: grafana/grafana:10.2.0
+                  ports:
+                  - containerPort: 3000
+                  env:
+                  - name: GF_SECURITY_ADMIN_PASSWORD
+                    value: "{{ grafana_admin_password }}"
+                  - name: GF_USERS_ALLOW_SIGN_UP
+                    value: "false"
+                  - name: GF_INSTALL_PLUGINS
+                    value: "grafana-kubernetes-app"
+                  volumeMounts:
+                  - name: grafana-storage
+                    mountPath: /var/lib/grafana
+                  - name: grafana-config
+                    mountPath: /etc/grafana/provisioning
+                  resources:
+                    requests:
+                      memory: "256Mi"
+                      cpu: "100m"
+                    limits:
+                      memory: "512Mi"
+                      cpu: "200m"
+                  livenessProbe:
+                    httpGet:
+                      path: /api/health
+                      port: 3000
+                    initialDelaySeconds: 30
+                    timeoutSeconds: 10
+                  readinessProbe:
+                    httpGet:
+                      path: /api/health
+                      port: 3000
+                    initialDelaySeconds: 5
+                    timeoutSeconds: 10
+                volumes:
+                - name: grafana-storage
+                  emptyDir: {}
+                - name: grafana-config
+                  configMap:
+                    name: grafana-config
+
+    - name: Create Grafana Service
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: grafana-service
+            namespace: "{{ monitoring_namespace }}"
+            labels:
+              app: grafana
+          spec:
+            selector:
+              app: grafana
+            ports:
+            - port: 3000
+              targetPort: 3000
+              protocol: TCP
+            type: LoadBalancer
+
+    - name: Wait for monitoring services to be ready
+      k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ monitoring_namespace }}"
+        wait: true
+        wait_condition:
+          type: Available
+          status: "True"
+        wait_timeout: 600
+
+    - name: Get monitoring service URLs
+      k8s_info:
+        api_version: v1
+        kind: Service
+        namespace: "{{ monitoring_namespace }}"
+      register: monitoring_services
+
+    - name: Display monitoring URLs
+      debug:
+        msg: |
+          Monitoring Services:
+          {% for service in monitoring_services.resources %}
+          - {{ service.metadata.name }}:
+            {% if service.status.loadBalancer.ingress is defined %}
+            External URL: http://{{ service.status.loadBalancer.ingress[0].hostname }}:{{ service.spec.ports[0].port }}
+            {% else %}
+            ClusterIP: {{ service.spec.clusterIP }}:{{ service.spec.ports[0].port }}
+            {% endif %}
+          {% endfor %}
+          
+          Access Information:
+          - Grafana: admin/{{ grafana_admin_password }}
+          - Prometheus: Direct access to metrics and alerts

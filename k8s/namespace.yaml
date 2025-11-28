@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: media-compressor
+  labels:
+    name: media-compressor
+    environment: production

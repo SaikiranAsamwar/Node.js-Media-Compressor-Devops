@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Converter - FileCompressor Pro</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Professional Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <div class="navbar-left">
+        <a href="dashboard.html" class="logo">📦 FileCompressor Pro</a>
+      </div>
+      <div class="navbar-center">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="history.html" class="nav-link">History</a>
+        <a href="pricing.html" class="nav-link">Pricing</a>
+      </div>
+      <div class="navbar-right">
+        <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle theme">
+          <svg class="theme-icon sun-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 3a1 1 0 011 1v1a1 1 0 11-2 0V4a1 1 0 011-1zm0 10a3 3 0 100-6 3 3 0 000 6zm0 2a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM4 10a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM6.343 6.343a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zm5.657 5.657a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zM6.343 13.657a1 1 0 010-1.414l.707-.707a1 1 0 111.414 1.414l-.707.707a1 1 0 01-1.414 0zm5.657-5.657a1 1 0 010-1.414l.707-.707a1 1 0 111.414 1.414l-.707.707a1 1 0 01-1.414 0z"/>
+          </svg>
+          <svg class="theme-icon moon-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+          </svg>
+        </button>
+        <div class="profile-dropdown">
+          <button class="profile-btn" id="profileBtn">
+            <div class="avatar" id="userAvatar">U</div>
+            <span id="navUsername">User</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M6 9L1 4h10z"/>
+            </svg>
+          </button>
+          <div class="dropdown-menu" id="profileMenu">
+            <a href="profile.html" class="dropdown-item">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+              My Profile
+            </a>
+            <a href="settings.html" class="dropdown-item">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 2a5 5 0 100 10A5 5 0 008 3zm0 1.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7z"/>
+              </svg>
+              Settings
+            </a>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" id="logoutBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M6 13V3h1v10H6zm3-10l5 5-5 5V8H3V6h6V3z"/>
+              </svg>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <div class="page-header">
+        <a href="dashboard.html" class="back-link">← Back to Dashboard</a>
+        <h1>🔄 Image Converter</h1>
+        <p>Convert images between different formats while preserving quality</p>
+      </div>
+
+      <div class="single-service-container">
+        <div class="card large-card">
+          <div class="upload-zone" id="convertDropZone">
+            <div class="upload-icon">📤</div>
+            <p>Drop image or click to browse</p>
+            <small>Supports: JPG, PNG, WebP, AVIF (Max 50MB)</small>
+            <input type="file" id="convertInput" accept="image/*" aria-label="Upload image to convert">
+          </div>
+          
+          <div id="convertFileInfo" class="file-info hidden"></div>
+          <div id="convertFormatInfo" class="format-info hidden"></div>
+          
+          <div class="controls">
+            <div class="control-group">
+              <label>Convert To</label>
+              <select id="convertFormat" class="select-input" aria-label="Select output format">
+                <option value="">Select output format...</option>
+              </select>
+            </div>
+          </div>
+          
+          <div id="convertProgress" class="progress-bar hidden">
+            <div class="progress-fill" id="convertProgressFill"></div>
+          </div>
+          
+          <div id="convertResult" class="result hidden">
+            <div class="stats">
+              <div class="stat"><strong>Original:</strong> <span id="convertOriginalSize">-</span></div>
+              <div class="stat"><strong>Converted:</strong> <span id="convertConvertedSize">-</span></div>
+              <div class="stat savings"><strong>Format:</strong> <span id="convertNewFormat">-</span></div>
+            </div>
+            <button class="btn btn-success btn-block" id="convertDownloadBtn">
+              ⬇️ Download Converted File
+            </button>
+          </div>
+          
+          <button class="btn btn-primary btn-block" id="convertBtn" disabled>
+            🔄 Convert Format
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-section">
+        <h4>📦 FileCompressor Pro</h4>
+        <p>Professional file compression and conversion platform</p>
+      </div>
+      <div class="footer-section">
+        <h4>Services</h4>
+        <a href="converter.html">Image Converter</a>
+        <a href="compressor.html">Image Compressor</a>
+        <a href="restore.html">Image Restore</a>
+        <a href="pdf.html">PDF Compressor</a>
+      </div>
+      <div class="footer-section">
+        <h4>Support</h4>
+        <a href="#">Help Center</a>
+        <a href="#">Documentation</a>
+        <a href="#">Contact Us</a>
+        <a href="#">FAQs</a>
+      </div>
+      <div class="footer-section">
+        <h4>Legal</h4>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+        <a href="#">Cookie Policy</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 FileCompressor Pro. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="common.js"></script>
+  <script src="converter.js"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+[media_compressor_cluster]
+localhost ansible_connection=local
+
+[media_compressor_cluster:vars]
+# EKS Cluster Configuration
+cluster_name=media-compressor-cluster
+region=us-west-2
+kubeconfig_path=~/.kube/config
+
+# Application Configuration
+app_namespace=media-compressor
+monitoring_namespace=monitoring
+
+# ECR Configuration  
+aws_account_id=514439471441
+ecr_region=us-west-2
+backend_image=514439471441.dkr.ecr.us-west-2.amazonaws.com/saikiranasamwar4/media-compressor-backend
+frontend_image=514439471441.dkr.ecr.us-west-2.amazonaws.com/saikiranasamwar4/media-compressor-frontend
+image_tag=v1
+
+# DocumentDB Configuration
+documentdb_endpoint=media-compressor-docdb-cluster.cluster-abcdef123456.us-west-2.docdb.amazonaws.com
+documentdb_port=27017
+documentdb_username=admin
+
+# Monitoring Configuration
+prometheus_retention=30d
+grafana_admin_password=admin123
+
+# Security Configuration
+enable_ssl=true
+ssl_cert_path=/etc/ssl/certs
+ssl_key_path=/etc/ssl/private
+
+# Resource Limits
+backend_cpu_requests=200m
+backend_memory_requests=256Mi
+backend_cpu_limits=500m
+backend_memory_limits=512Mi
+
+frontend_cpu_requests=100m
+frontend_memory_requests=128Mi
+frontend_cpu_limits=200m
+frontend_memory_limits=256Mi
+
+# Scaling Configuration
+backend_min_replicas=2
+backend_max_replicas=10
+frontend_min_replicas=2
+frontend_max_replicas=5
+
+# Health Check Configuration
+backend_health_path=/health
+frontend_health_path=/
+health_check_interval=30s
+health_check_timeout=10s
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
+aws_region=us-east-1
+cluster_name=media-compressor-cluster
+namespace=media-compressor
+monitoring_namespace=monitoring

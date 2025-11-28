@@ -1,0 +1,309 @@
+---
+- name: Deploy Media Compressor Application to EKS
+  hosts: local
+  gather_facts: false
+  
+  vars:
+    aws_region: "{{ aws_region | default('us-east-1') }}"
+    cluster_name: "{{ cluster_name | default('media-compressor-cluster') }}"
+    namespace: "{{ namespace | default('media-compressor') }}"
+    image_tag: "{{ image_tag | default('latest') }}"
+    commit_hash: "{{ commit_hash | default('unknown') }}"
+    build_number: "{{ build_number | default('0') }}"
+    backend_image: "514439471441.dkr.ecr.{{ aws_region }}.amazonaws.com/saikiranasamwar4/media-compressor-backend:{{ image_tag }}"
+    frontend_image: "514439471441.dkr.ecr.{{ aws_region }}.amazonaws.com/saikiranasamwar4/media-compressor-frontend:{{ image_tag }}"
+
+  tasks:
+    - name: Update kubeconfig for EKS cluster
+      shell: |
+        aws eks update-kubeconfig --region {{ aws_region }} --name {{ cluster_name }}
+      environment:
+        AWS_REGION: "{{ aws_region }}"
+
+    - name: Verify kubectl connection
+      k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: default
+      register: kubectl_test
+
+    - name: Create namespace if not exists
+      k8s:
+        name: "{{ namespace }}"
+        api_version: v1
+        kind: Namespace
+        state: present
+        definition:
+          metadata:
+            labels:
+              name: "{{ namespace }}"
+              environment: production
+              managed-by: ansible
+
+    - name: Apply secrets
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: media-compressor-secrets
+            namespace: "{{ namespace }}"
+          type: Opaque
+          stringData:
+            mongo-uri: "mongodb://compressoradmin:ChangeThisPassword123!@media-compressor-docdb-cluster.cluster-xxxxx.us-east-1.docdb.amazonaws.com:27017/compressor?ssl=true&retryWrites=false"
+            jwt-secret: "your-super-secret-jwt-key-change-in-production"
+
+    - name: Deploy backend application
+      k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: media-compressor-backend
+            namespace: "{{ namespace }}"
+            labels:
+              app: media-compressor-backend
+              version: "{{ image_tag }}"
+              commit: "{{ commit_hash }}"
+            annotations:
+              deployment.kubernetes.io/revision: "{{ build_number }}"
+          spec:
+            replicas: 2
+            strategy:
+              type: RollingUpdate
+              rollingUpdate:
+                maxUnavailable: 1
+                maxSurge: 1
+            selector:
+              matchLabels:
+                app: media-compressor-backend
+            template:
+              metadata:
+                labels:
+                  app: media-compressor-backend
+                  version: "{{ image_tag }}"
+                annotations:
+                  prometheus.io/scrape: "true"
+                  prometheus.io/port: "3000"
+                  prometheus.io/path: "/metrics"
+                  deployment.date: "{{ ansible_date_time.iso8601 }}"
+              spec:
+                serviceAccountName: media-compressor-sa
+                containers:
+                - name: backend
+                  image: "{{ backend_image }}"
+                  imagePullPolicy: Always
+                  ports:
+                  - containerPort: 3000
+                    protocol: TCP
+                  env:
+                  - name: NODE_ENV
+                    value: "production"
+                  - name: PORT
+                    value: "3000"
+                  - name: BUILD_NUMBER
+                    value: "{{ build_number }}"
+                  - name: COMMIT_HASH
+                    value: "{{ commit_hash }}"
+                  - name: MONGO_URI
+                    valueFrom:
+                      secretKeyRef:
+                        name: media-compressor-secrets
+                        key: mongo-uri
+                  - name: JWT_SECRET
+                    valueFrom:
+                      secretKeyRef:
+                        name: media-compressor-secrets
+                        key: jwt-secret
+                  resources:
+                    requests:
+                      memory: "512Mi"
+                      cpu: "250m"
+                    limits:
+                      memory: "1Gi"
+                      cpu: "500m"
+                  livenessProbe:
+                    httpGet:
+                      path: /health
+                      port: 3000
+                    initialDelaySeconds: 30
+                    periodSeconds: 10
+                    timeoutSeconds: 5
+                    failureThreshold: 3
+                  readinessProbe:
+                    httpGet:
+                      path: /health
+                      port: 3000
+                    initialDelaySeconds: 5
+                    periodSeconds: 5
+                    timeoutSeconds: 3
+                    successThreshold: 1
+                    failureThreshold: 3
+
+    - name: Deploy frontend application
+      k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: media-compressor-frontend
+            namespace: "{{ namespace }}"
+            labels:
+              app: media-compressor-frontend
+              version: "{{ image_tag }}"
+              commit: "{{ commit_hash }}"
+            annotations:
+              deployment.kubernetes.io/revision: "{{ build_number }}"
+          spec:
+            replicas: 2
+            strategy:
+              type: RollingUpdate
+              rollingUpdate:
+                maxUnavailable: 1
+                maxSurge: 1
+            selector:
+              matchLabels:
+                app: media-compressor-frontend
+            template:
+              metadata:
+                labels:
+                  app: media-compressor-frontend
+                  version: "{{ image_tag }}"
+                annotations:
+                  deployment.date: "{{ ansible_date_time.iso8601 }}"
+              spec:
+                containers:
+                - name: frontend
+                  image: "{{ frontend_image }}"
+                  imagePullPolicy: Always
+                  ports:
+                  - containerPort: 80
+                    protocol: TCP
+                  env:
+                  - name: BUILD_NUMBER
+                    value: "{{ build_number }}"
+                  - name: COMMIT_HASH
+                    value: "{{ commit_hash }}"
+                  resources:
+                    requests:
+                      memory: "256Mi"
+                      cpu: "100m"
+                    limits:
+                      memory: "512Mi"
+                      cpu: "250m"
+                  livenessProbe:
+                    httpGet:
+                      path: /
+                      port: 80
+                    initialDelaySeconds: 30
+                    periodSeconds: 10
+                  readinessProbe:
+                    httpGet:
+                      path: /
+                      port: 80
+                    initialDelaySeconds: 5
+                    periodSeconds: 5
+
+    - name: Create backend service
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: backend-service
+            namespace: "{{ namespace }}"
+            labels:
+              app: media-compressor-backend
+          spec:
+            selector:
+              app: media-compressor-backend
+            ports:
+            - port: 3000
+              targetPort: 3000
+              protocol: TCP
+            type: ClusterIP
+
+    - name: Create frontend service
+      k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: frontend-service
+            namespace: "{{ namespace }}"
+            labels:
+              app: media-compressor-frontend
+          spec:
+            selector:
+              app: media-compressor-frontend
+            ports:
+            - port: 80
+              targetPort: 80
+              protocol: TCP
+            type: LoadBalancer
+
+    - name: Wait for backend deployment to be ready
+      k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: media-compressor-backend
+        namespace: "{{ namespace }}"
+        wait: true
+        wait_condition:
+          type: Progressing
+          status: "True"
+          reason: NewReplicaSetAvailable
+        wait_timeout: 600
+
+    - name: Wait for frontend deployment to be ready
+      k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: media-compressor-frontend
+        namespace: "{{ namespace }}"
+        wait: true
+        wait_condition:
+          type: Progressing
+          status: "True"
+          reason: NewReplicaSetAvailable
+        wait_timeout: 600
+
+    - name: Get deployment status
+      k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        namespace: "{{ namespace }}"
+      register: deployments
+
+    - name: Display deployment information
+      debug:
+        msg: |
+          Deployment Status:
+          {% for deployment in deployments.resources %}
+          - {{ deployment.metadata.name }}: {{ deployment.status.readyReplicas | default(0) }}/{{ deployment.spec.replicas }} ready
+          {% endfor %}
+
+    - name: Get service URLs
+      k8s_info:
+        api_version: v1
+        kind: Service
+        namespace: "{{ namespace }}"
+      register: services
+
+    - name: Display service information
+      debug:
+        msg: |
+          Services:
+          {% for service in services.resources %}
+          - {{ service.metadata.name }}: 
+            {% if service.status.loadBalancer.ingress is defined %}
+            External URL: http://{{ service.status.loadBalancer.ingress[0].hostname }}
+            {% else %}
+            ClusterIP: {{ service.spec.clusterIP }}
+            {% endif %}
+          {% endfor %}

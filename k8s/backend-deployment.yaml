@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media-compressor-backend
+  namespace: media-compressor
+  labels:
+    app: media-compressor-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: media-compressor-backend
+  template:
+    metadata:
+      labels:
+        app: media-compressor-backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: media-compressor-sa
+      containers:
+      - name: backend
+        image: 514439471441.dkr.ecr.us-east-1.amazonaws.com/saikiranasamwar4/media-compressor-backend:v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        - name: MAX_FILE_SIZE
+          value: "52428800"
+        - name: MONGO_URI
+          valueFrom:
+            secretKeyRef:
+              name: media-compressor-secrets
+              key: mongo-uri
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: media-compressor-secrets
+              key: jwt-secret
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: uploads-storage
+          mountPath: /app/uploads
+      volumes:
+      - name: uploads-storage
+        persistentVolumeClaim:
+          claimName: uploads-pvc
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: media-compressor-sa
+  namespace: media-compressor
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: media-compressor
+  labels:
+    app: media-compressor-backend
+spec:
+  selector:
+    app: media-compressor-backend
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+  type: ClusterIP

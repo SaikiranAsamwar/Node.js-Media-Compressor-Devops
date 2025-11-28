@@ -1,0 +1,64 @@
+---
+# Main Ansible playbook to deploy Media Compressor Application
+- name: Deploy Media Compressor to EKS with Monitoring
+  hosts: media_compressor_cluster
+  gather_facts: false
+  
+  tasks:
+    - name: Deploy Application Components
+      include: deployment-playbook.yml
+      vars:
+        namespace: "{{ app_namespace }}"
+        backend_image_full: "{{ backend_image }}:{{ image_tag }}"
+        frontend_image_full: "{{ frontend_image }}:{{ image_tag }}"
+
+    - name: Setup Monitoring Stack
+      include: monitoring-playbook.yml
+      vars:
+        namespace: "{{ monitoring_namespace }}"
+        retention_days: "{{ prometheus_retention }}"
+        admin_password: "{{ grafana_admin_password }}"
+
+    - name: Wait for all services to be ready
+      pause:
+        seconds: 30
+        prompt: "Waiting for services to stabilize..."
+
+    - name: Run post-deployment health checks
+      uri:
+        url: "{{ item }}"
+        method: GET
+        timeout: 10
+      register: health_check_results
+      ignore_errors: yes
+      loop:
+        - "http://{{ hostvars['localhost']['backend_service_url'] }}{{ backend_health_path }}"
+        - "http://{{ hostvars['localhost']['frontend_service_url'] }}{{ frontend_health_path }}"
+      when: hostvars['localhost']['backend_service_url'] is defined
+
+    - name: Display deployment summary
+      debug:
+        msg: |
+          ===============================================
+          Media Compressor Deployment Summary
+          ===============================================
+          
+          Application Services:
+          {% if hostvars['localhost']['backend_service_url'] is defined %}
+          - Backend API: http://{{ hostvars['localhost']['backend_service_url'] }}
+          - Frontend App: http://{{ hostvars['localhost']['frontend_service_url'] }}
+          {% endif %}
+          
+          Monitoring Services:
+          - Prometheus: Check cluster for monitoring service
+          - Grafana: Check cluster for grafana service (admin/{{ grafana_admin_password }})
+          
+          Deployment Status: COMPLETED
+          Namespace: {{ app_namespace }}
+          Monitoring Namespace: {{ monitoring_namespace }}
+          
+          Next Steps:
+          1. Access the application via the frontend URL
+          2. Monitor application metrics in Grafana
+          3. Set up alerts in Prometheus if needed
+          ===============================================

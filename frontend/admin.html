@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - FileCompressor Pro</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Professional Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <div class="navbar-left">
+        <a href="dashboard.html" class="logo">📦 FileCompressor Pro</a>
+        <span class="admin-badge">👑 ADMIN</span>
+      </div>
+      <div class="navbar-center">
+        <a href="admin.html" class="nav-link active">Dashboard</a>
+        <a href="users.html" class="nav-link">Users</a>
+        <a href="activity.html" class="nav-link">Activity</a>
+      </div>
+      <div class="navbar-right">
+        <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle theme">
+          <svg class="theme-icon sun-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 3a1 1 0 011 1v1a1 1 0 11-2 0V4a1 1 0 011-1zm0 10a3 3 0 100-6 3 3 0 000 6zm0 2a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM4 10a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM6.343 6.343a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zm5.657 5.657a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zM6.343 13.657a1 1 0 010-1.414l.707-.707a1 1 0 111.414 1.414l-.707.707a1 1 0 01-1.414 0zm5.657-5.657a1 1 0 010-1.414l.707-.707a1 1 0 111.414 1.414l-.707.707a1 1 0 01-1.414 0z"/>
+          </svg>
+          <svg class="theme-icon moon-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+          </svg>
+        </button>
+        <div class="profile-dropdown">
+          <button class="profile-btn" id="profileBtn">
+            <div class="avatar" id="userAvatar">A</div>
+            <span id="navUsername">Admin</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M6 9L1 4h10z"/>
+            </svg>
+          </button>
+          <div class="dropdown-menu" id="profileMenu">
+            <a href="profile.html" class="dropdown-item">My Profile</a>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" id="logoutBtn">Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="admin-main">
+    <div class="admin-container">
+      <!-- Page Header -->
+      <div class="admin-header">
+        <h1>📊 Admin Dashboard</h1>
+        <p>System overview and real-time monitoring</p>
+      </div>
+
+      <!-- System Stats Grid -->
+      <div class="stats-grid-admin">
+        <div class="stat-card-admin">
+          <div class="stat-icon-admin">👥</div>
+          <div class="stat-content">
+            <div class="stat-label-admin">Total Users</div>
+            <div class="stat-value-admin" id="totalUsers">0</div>
+            <div class="stat-change positive" id="userChange">↑ 0% this month</div>
+          </div>
+        </div>
+
+        <div class="stat-card-admin">
+          <div class="stat-icon-admin">📁</div>
+          <div class="stat-content">
+            <div class="stat-label-admin">Files Processed</div>
+            <div class="stat-value-admin" id="totalFilesProcessed">0</div>
+            <div class="stat-change positive" id="fileChange">↑ 0% this month</div>
+          </div>
+        </div>
+
+        <div class="stat-card-admin">
+          <div class="stat-icon-admin">💾</div>
+          <div class="stat-content">
+            <div class="stat-label-admin">Storage Used</div>
+            <div class="stat-value-admin" id="totalStorageUsed">0 MB</div>
+            <div class="stat-change positive" id="storageChange">↑ 0% this month</div>
+          </div>
+        </div>
+
+        <div class="stat-card-admin">
+          <div class="stat-icon-admin">⚡</div>
+          <div class="stat-content">
+            <div class="stat-label-admin">Avg Processing Time</div>
+            <div class="stat-value-admin" id="avgProcessingTime">0.5s</div>
+            <div class="stat-change positive" id="timeChange">↓ 5% improvement</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-grid">
+        <!-- User Management Section -->
+        <div class="admin-card full-width">
+          <div class="card-header">
+            <h2>👥 User Management</h2>
+            <div class="card-actions">
+              <input type="text" id="userSearch" placeholder="Search users..." class="search-input">
+              <select id="roleFilter" class="filter-select" aria-label="Filter users by role">
+                <option value="">All Roles</option>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Joined</th>
+                  <th>Files Processed</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <tr>
+                  <td colspan="7" class="text-center p-8">Loading users...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Real-time Activity Feed -->
+        <div class="admin-card full-width">
+          <div class="card-header">
+            <h2>🔔 Real-time Activity Feed</h2>
+            <button class="btn btn-sm btn-outline" id="clearActivityBtn">Clear Feed</button>
+          </div>
+          <div class="activity-feed" id="activityFeed">
+            <div class="activity-item empty">
+              <p>No recent activity</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Server Health -->
+        <div class="admin-card">
+          <h3>🏥 Server Health</h3>
+          <div class="health-item">
+            <span>Database Connection</span>
+            <div class="health-indicator connected" id="dbHealth"></div>
+          </div>
+          <div class="health-item">
+            <span>API Response</span>
+            <div class="health-indicator connected" id="apiHealth"></div>
+          </div>
+          <div class="health-item">
+            <span>Memory Usage</span>
+            <div class="health-indicator connected" id="memHealth"></div>
+          </div>
+          <div class="health-item">
+            <span>Disk Space</span>
+            <div class="health-indicator connected" id="diskHealth"></div>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="admin-card">
+          <h3>⚙️ Quick Actions</h3>
+          <div class="action-buttons">
+            <button class="btn btn-sm btn-primary" onclick="clearSystemCache()">Clear Cache</button>
+            <button class="btn btn-sm btn-outline" onclick="exportData()">Export Data</button>
+            <button class="btn btn-sm btn-outline" onclick="viewLogs()">View Logs</button>
+            <button class="btn btn-sm btn-danger" onclick="maintenanceMode()">Maintenance</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-section">
+        <h4>📦 FileCompressor Pro</h4>
+        <p>Professional file compression platform</p>
+      </div>
+      <div class="footer-section">
+        <h4>Admin</h4>
+        <a href="admin.html">Dashboard</a>
+        <a href="users.html">Users</a>
+        <a href="activity.html">Activity</a>
+      </div>
+      <div class="footer-section">
+        <h4>Support</h4>
+        <a href="#">Documentation</a>
+        <a href="#">Help Center</a>
+        <a href="#">Report Issue</a>
+      </div>
+      <div class="footer-section">
+        <h4>Legal</h4>
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Service</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 FileCompressor Pro. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <script src="common.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
