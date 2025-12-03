@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     environment {
-        AWS_REGION = 'us-west-2'
+        AWS_REGION = 'us-east-1'
         AWS_ACCOUNT_ID = '514439471441'
         ECR_REGISTRY = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
         IMAGE_PREFIX = 'saikiranasamwar4'
