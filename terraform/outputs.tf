@@ -91,3 +91,39 @@ output "documentdb_cluster_master_username" {
   value       = aws_docdb_cluster.main.master_username
   sensitive   = true
 }
+
+# Jenkins Outputs
+output "jenkins_instance_id" {
+  description = "Jenkins EC2 Instance ID"
+  value       = aws_instance.jenkins.id
+}
+
+output "jenkins_public_ip" {
+  description = "Jenkins public IP address (Elastic IP)"
+  value       = aws_eip.jenkins.public_ip
+}
+
+output "jenkins_private_ip" {
+  description = "Jenkins private IP address"
+  value       = aws_instance.jenkins.private_ip
+}
+
+output "jenkins_url" {
+  description = "Jenkins web interface URL"
+  value       = "http://${aws_eip.jenkins.public_ip}:8080"
+}
+
+output "jenkins_ssh_command" {
+  description = "SSH command to connect to Jenkins instance"
+  value       = "ssh -i ~/.ssh/id_rsa ubuntu@${aws_eip.jenkins.public_ip}"
+}
+
+output "jenkins_security_group_id" {
+  description = "Jenkins security group ID"
+  value       = aws_security_group.jenkins.id
+}
+
+output "jenkins_iam_role_name" {
+  description = "Jenkins IAM role name"
+  value       = aws_iam_role.jenkins.name
+}

@@ -182,39 +182,3 @@ resource "aws_cloudwatch_log_group" "jenkins" {
     Name = "jenkins-logs"
   }
 }
-
-# Outputs
-output "jenkins_instance_id" {
-  value       = aws_instance.jenkins.id
-  description = "Jenkins EC2 Instance ID"
-}
-
-output "jenkins_public_ip" {
-  value       = aws_eip.jenkins.public_ip
-  description = "Jenkins public IP address (Elastic IP)"
-}
-
-output "jenkins_private_ip" {
-  value       = aws_instance.jenkins.private_ip
-  description = "Jenkins private IP address"
-}
-
-output "jenkins_url" {
-  value       = "http://${aws_eip.jenkins.public_ip}:8080"
-  description = "Jenkins web interface URL"
-}
-
-output "jenkins_ssh_command" {
-  value       = "ssh -i ~/.ssh/id_rsa ubuntu@${aws_eip.jenkins.public_ip}"
-  description = "SSH command to connect to Jenkins instance"
-}
-
-output "jenkins_security_group_id" {
-  value       = aws_security_group.jenkins.id
-  description = "Jenkins security group ID"
-}
-
-output "jenkins_iam_role_name" {
-  value       = aws_iam_role.jenkins.name
-  description = "Jenkins IAM role name"
-}
