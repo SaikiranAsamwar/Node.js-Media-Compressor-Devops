@@ -114,8 +114,8 @@ output "jenkins_url" {
 }
 
 output "jenkins_ssh_command" {
-  description = "SSH command to connect to Jenkins instance"
-  value       = "ssh -i .ssh/jenkins_key.pem ubuntu@${aws_eip.jenkins.public_ip}"
+  description = "SSH command to connect to master instance (Amazon Linux)"
+  value       = "ssh -i .ssh/jenkins_key.pem ec2-user@${aws_eip.jenkins.public_ip}"
 }
 
 output "jenkins_security_group_id" {

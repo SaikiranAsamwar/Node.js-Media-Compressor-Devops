@@ -1,14 +1,14 @@
 # Jenkins Server Configuration
 # Deploy a production-ready Jenkins instance on AWS
 
-# Data source to get latest Ubuntu AMI
-data "aws_ami" "ubuntu" {
+# Data source to get latest Amazon Linux 2 AMI
+data "aws_ami" "amazon_linux" {
   most_recent = true
-  owners      = ["099720109477"] # Canonical
+  owners      = ["137112412989"] # Amazon
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
 
   filter {
@@ -125,10 +125,10 @@ resource "aws_iam_instance_profile" "jenkins" {
   role = aws_iam_role.jenkins.name
 }
 
-# EC2 Instance for Jenkins
+# EC2 Instance for Jenkins (Master Node)
 resource "aws_instance" "jenkins" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t3.medium"
+  ami                         = data.aws_ami.amazon_linux.id
+  instance_type               = "t3.xlarge"
   associate_public_ip_address = true
   key_name                    = aws_key_pair.jenkins.key_name
   vpc_security_group_ids      = [aws_security_group.jenkins.id]
