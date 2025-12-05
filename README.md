@@ -1,1388 +1,868 @@
-# Media Compressor - Complete Deployment & Operations Guide
+# Media Compressor DevOps - Complete Deployment Guide
 
-A comprehensive guide to deploy the Media Compressor application from scratch to production using AWS EKS, with Jenkins CI/CD, Ansible automation, and Prometheus/Grafana monitoring.
-
-**Project Repository:** Media Compressor Application
-**Deployment Architecture:** AWS EKS + DocumentDB + ECR
-**CI/CD Platform:** Jenkins + Ansible
-**Monitoring Stack:** Prometheus + Grafana
-**Infrastructure as Code:** Terraform
-
----
-
-## 📋 Quick Navigation
-
-- **Quick Start:** Jump to [Quick Start Summary](#-quick-start-summary)
-- **First Time Setup:** Follow [Prerequisites](#-prerequisites) → [Infrastructure Setup](#-infrastructure-setup)
-- **Deploy Application:** See [Deployment Execution](#-deployment-execution)
-- **Troubleshoot Issues:** Check [Troubleshooting](#-troubleshooting)
-- **Maintenance:** See [Maintenance](#-maintenance)
+## 📋 Table of Contents
+1. [Overview](#overview)
+2. [Project Architecture](#project-architecture)
+3. [Prerequisites](#prerequisites)
+4. [Step-by-Step Deployment Guide](#step-by-step-deployment-guide)
+5. [Infrastructure Components](#infrastructure-components)
+6. [Deployment Process](#deployment-process)
+7. [Accessing the Application](#accessing-the-application)
+8. [Monitoring & Logs](#monitoring--logs)
+9. [Troubleshooting](#troubleshooting)
+10. [Cleanup](#cleanup)
 
 ---
 
-## 🔧 Prerequisites
+## 🎯 Overview
 
-### Required Tools & Versions
+This project is a complete DevOps setup for the **Media Compressor Application** with:
+- **Backend**: Node.js Express API (MongoDB)
+- **Frontend**: React-based UI
+- **Infrastructure**: AWS (VPC, EKS, DocumentDB, ECR)
+- **CI/CD**: Jenkins Pipeline
+- **Monitoring**: Prometheus & Grafana
+- **Container Orchestration**: Kubernetes (EKS)
+
+The setup uses **Infrastructure as Code (IaC)** with Terraform to automate all AWS infrastructure provisioning.
+
+---
+
+## 🏗️ Project Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        AWS Account                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                    VPC (10.0.0.0/16)                     │  │
+│  ├──────────────────────────────────────────────────────────┤  │
+│  │                                                          │  │
+│  │  ┌─────────────────┐  ┌──────────────────────────────┐  │  │
+│  │  │  Public Subnets │  │   Private Subnets (EKS)     │  │  │
+│  │  │  (Jenkins, NAT) │  │  ├─ Backend Pods            │  │  │
+│  │  │                 │  │  ├─ Frontend Pods           │  │  │
+│  │  └─────────────────┘  │  └─ Monitoring Stack        │  │  │
+│  │                       └──────────────────────────────┘  │  │
+│  │                                                          │  │
+│  │  ┌──────────────────────────────────────────────────┐  │  │
+│  │  │  Database Subnets                                │  │  │
+│  │  │  ├─ DocumentDB Cluster (MongoDB-compatible)     │  │  │
+│  │  │  └─ Multi-AZ Replication                        │  │  │
+│  │  └──────────────────────────────────────────────────┘  │  │
+│  │                                                          │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Additional Services                                     │  │
+│  │  ├─ ECR (Elastic Container Registry)                    │  │
+│  │  ├─ Jenkins EC2 (Master Node)                           │  │
+│  │  ├─ CloudWatch Logs                                     │  │
+│  │  └─ Security Groups & IAM Roles                         │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ✅ Prerequisites
+
+### Local Machine Requirements:
+- **Terraform** >= 1.0 ([Download](https://www.terraform.io/downloads))
+- **AWS CLI** v2 ([Download](https://aws.amazon.com/cli/))
+- **Git** ([Download](https://git-scm.com/))
+- **AWS Account** with sufficient permissions
+- **AWS Access Keys** (Access Key ID & Secret Access Key)
+
+### Minimum AWS Permissions:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:*",
+        "eks:*",
+        "ecr:*",
+        "iam:*",
+        "rds:*",
+        "docdb:*",
+        "cloudwatch:*",
+        "logs:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### AWS Resources Cost Estimate:
+- **EKS Cluster**: ~$0.10/hour
+- **DocumentDB**: ~$1.50/hour (multi-node)
+- **EC2 Instances**: ~$0.05/hour (t3.medium)
+- **Data Transfer**: Variable
+- **Estimate**: ~$45-60/month for development environment
+
+---
+
+## 🚀 Step-by-Step Deployment Guide
+
+### Step 1: Clone the Repository
 
 ```bash
-# Check versions after installation
-git --version                  # Git 2.x or higher
-docker --version              # Docker 20.x or higher
-kubectl version --client      # kubectl 1.28+
-terraform -version            # Terraform 1.0+
-ansible --version             # Ansible 2.10+
-aws --version                 # AWS CLI v2
+# Clone the repository
+git clone https://github.com/SaikiranAsamwar/Media-Compressor-Devops.git
+cd Media-Compressor-Devops
+
+# Verify folder structure
+ls -la
 ```
 
-### Installation Instructions
-
-#### macOS/Linux
-```bash
-# AWS CLI
-curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
-sudo installer -pkg AWSCLIV2.pkg -target /
-
-# kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-
-# Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Terraform
-wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip
-unzip terraform_1.5.0_linux_amd64.zip
-sudo mv terraform /usr/local/bin/
-
-# Ansible
-pip3 install ansible
-ansible-galaxy collection install kubernetes.core community.general
+**Expected Output:**
+```
+ansible/
+backend/
+frontend/
+jenkins/
+k8s/
+terraform/
+uploads/
+README.md
 ```
 
-#### Windows
-```powershell
-# Using Chocolatey
-choco install git docker-desktop kubectl terraform ansible awscli
+---
 
-# Or download manually from official sites:
-# - Git: https://git-scm.com/download/win
-# - Docker Desktop: https://www.docker.com/products/docker-desktop
-# - kubectl: https://kubernetes.io/docs/tasks/tools/install-kubectl-on-windows/
-# - Terraform: https://www.terraform.io/downloads
-# - AWS CLI: https://aws.amazon.com/cli/
-# - Ansible: pip install ansible
-```
-
-### AWS Configuration
+### Step 2: Configure AWS Credentials
 
 ```bash
 # Configure AWS CLI with your credentials
 aws configure
+
+# When prompted, enter:
 # AWS Access Key ID: [Your Access Key]
 # AWS Secret Access Key: [Your Secret Key]
-# Default region name: us-west-2
+# Default region: us-west-2
 # Default output format: json
 
 # Verify configuration
 aws sts get-caller-identity
-aws ec2 describe-regions --output table
 ```
 
-### Environment Variables Setup
-
-```bash
-# Linux/macOS
-export AWS_REGION=us-west-2
-export AWS_ACCOUNT_ID=514439471441
-export CLUSTER_NAME=media-compressor-cluster
-export IMAGE_PREFIX=saikiranasamwar4
-export PROJECT_NAME=media-compressor
-
-# Windows (PowerShell)
-$env:AWS_REGION = "us-west-2"
-$env:AWS_ACCOUNT_ID = "514439471441"
-$env:CLUSTER_NAME = "media-compressor-cluster"
-$env:IMAGE_PREFIX = "saikiranasamwar4"
-$env:PROJECT_NAME = "media-compressor"
+**Expected Output:**
+```json
+{
+    "UserId": "AIDACKCEVSQ6C2EXAMPLE",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::123456789012:user/your-username"
+}
 ```
 
 ---
 
-## 🏗️ Infrastructure Setup
-
-### Step 1: Clone Repository
-```bash
-git clone <your-repository-url>
-cd Compressorr
-```
-
-### Step 2: Initialize Terraform
+### Step 3: Update Terraform Variables
 
 ```bash
+# Navigate to terraform directory
 cd terraform
 
-# Initialize Terraform working directory
+# Review current variables
+cat terraform.tfvars
+```
+
+**Update `terraform.tfvars` with your values:**
+
+```hcl
+# AWS Configuration
+aws_region     = "us-west-2"              # Change to your preferred region
+account_id     = "514439471441"           # Replace with YOUR AWS Account ID
+
+# Project Configuration
+project_name   = "media-compressor"
+environment    = "production"
+cluster_name   = "media-compressor-cluster"
+
+# Kubernetes Configuration
+node_instance_type = "t3.medium"          # Instance type for EKS nodes
+desired_capacity   = 2                    # Number of worker nodes
+max_capacity       = 4                    # Maximum nodes for auto-scaling
+min_capacity       = 1                    # Minimum nodes
+
+# Database Configuration
+documentdb_instance_class      = "db.t3.medium"
+documentdb_master_username     = "admin"
+documentdb_master_password     = "YourSecurePassword123!"  # Change this!
+```
+
+**Security Note:** Use strong passwords for DocumentDB!
+
+---
+
+### Step 4: Initialize Terraform
+
+```bash
+# Initialize Terraform (download providers and modules)
 terraform init
 
-# Validate configuration
+# Verify initialization
 terraform validate
-
-# Plan deployment
-terraform plan -var="cluster_name=${CLUSTER_NAME}" \
-                -var="region=${AWS_REGION}" \
-                -var="account_id=${AWS_ACCOUNT_ID}"
 ```
 
-### Step 3: Deploy AWS Infrastructure
+**Expected Output:**
+```
+Initializing the backend...
+Initializing modules...
+Initializing provider plugins...
 
-```bash
-# Apply Terraform configuration to create:
-# - Custom VPC with public/private subnets
-# - EKS cluster with managed node groups
-# - DocumentDB cluster
-# - ECR repositories
-# - Security groups
-# - IAM roles and policies
-
-terraform apply -var="cluster_name=${CLUSTER_NAME}" \
-                 -var="region=${AWS_REGION}" \
-                 -var="account_id=${AWS_ACCOUNT_ID}" \
-                 -auto-approve
+Terraform has been successfully initialized!
 ```
 
-### Step 4: Configure kubectl
+---
+
+### Step 5: Review Deployment Plan
 
 ```bash
-# Update kubeconfig for cluster access
-aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+# Generate and review the execution plan
+terraform plan -out=plan.tfplan
 
-# Verify cluster access
-kubectl cluster-info
+# Review the output for:
+# - Resources to be created
+# - Dependencies
+# - Estimated costs
+```
+
+**Key Resources to be Created:**
+- 1 VPC with public, private, and database subnets
+- 1 EKS Cluster with 2 worker nodes
+- 1 DocumentDB Cluster (3-node)
+- 2 ECR Repositories (backend & frontend)
+- 1 Jenkins EC2 Instance (master node)
+- Security Groups, IAM Roles, and other networking components
+
+---
+
+### Step 6: Deploy Infrastructure
+
+```bash
+# Apply the Terraform plan to create AWS resources
+terraform apply plan.tfplan
+
+# This will take approximately 15-20 minutes
+# Wait for completion and note the outputs
+```
+
+**Expected Output (at the end):**
+```
+Apply complete! Resources have been created.
+
+Outputs:
+
+cluster_endpoint = "https://xxxxx.eks.us-west-2.amazonaws.com"
+jenkins_public_ip = "1.2.3.4"
+jenkins_url = "http://1.2.3.4:8080"
+documentdb_cluster_endpoint = "media-compressor-cluster.xxxx.docdb.us-west-2.amazonaws.com:27017"
+ecr_backend_repository_url = "514439471441.dkr.ecr.us-west-2.amazonaws.com/backend"
+ecr_frontend_repository_url = "514439471441.dkr.ecr.us-west-2.amazonaws.com/frontend"
+```
+
+---
+
+### Step 7: Configure kubectl
+
+```bash
+# Update kubeconfig to connect to your EKS cluster
+aws eks update-kubeconfig --region us-west-2 --name media-compressor-cluster
+
+# Verify kubectl connection
 kubectl get nodes
+
+# Verify namespaces
 kubectl get namespaces
 ```
 
----
-
-## 🔨 Application Setup
-
-### Step 1: Build Docker Images
-
-```bash
-# Navigate to project root
-cd ..
-
-# Build backend image (Node.js application)
-docker build -t ${IMAGE_PREFIX}/media-compressor-backend:v1 ./backend
-
-# Build frontend image (Nginx + Static files)
-docker build -t ${IMAGE_PREFIX}/media-compressor-frontend:v1 ./frontend
-
-# Verify images were created
-docker images | grep ${IMAGE_PREFIX}
+**Expected Output:**
 ```
+NAME                          STATUS   ROLES    AGE
+ip-10-0-xx-xxx.ec2.internal  Ready    <none>   5m
+ip-10-0-xx-xxx.ec2.internal  Ready    <none>   5m
 
-### Step 2: Push Images to ECR
-
-```bash
-# Login to Amazon ECR
-aws ecr get-login-password --region ${AWS_REGION} | \
-    docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-
-# Tag images for ECR
-docker tag ${IMAGE_PREFIX}/media-compressor-backend:v1 \
-    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v1
-
-docker tag ${IMAGE_PREFIX}/media-compressor-frontend:v1 \
-    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-frontend:v1
-
-# Push images to ECR
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v1
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-frontend:v1
-
-# Verify images in ECR
-aws ecr describe-repositories --region ${AWS_REGION}
-```
-
-### Step 3: Create Kubernetes Secrets
-
-```bash
-# Get DocumentDB endpoint from Terraform
-DOCDB_ENDPOINT=$(cd terraform && terraform output -raw documentdb_endpoint && cd ..)
-
-# Create application namespace
-kubectl create namespace media-compressor
-
-# Create DocumentDB credentials secret
-kubectl create secret generic docdb-credentials \
-    --from-literal=username=admin \
-    --from-literal=password=YourSecurePassword123! \
-    --from-literal=endpoint=${DOCDB_ENDPOINT} \
-    --namespace=media-compressor
-
-# Verify secret was created
-kubectl get secrets -n media-compressor
+NAME              STATUS   AGE
+media_compressor  Active   2m
+monitoring        Active   2m
+kube-system       Active   5m
 ```
 
 ---
 
-## 🚀 CI/CD Pipeline Setup
-
-### Step 1: Install Jenkins
+### Step 8: Access Jenkins Master Node
 
 ```bash
-# On EC2 instance or local machine
-sudo yum update -y
-sudo yum install -y java-11-amazon-corretto
+# Get the Jenkins instance details
+terraform output jenkins_public_ip
+terraform output jenkins_ssh_command
 
-# Add Jenkins repository
-sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+# SSH into the master node
+ssh -i .ssh/jenkins_key.pem ec2-user@<jenkins_public_ip>
 
-# Install Jenkins
-sudo yum install -y jenkins
+# Inside the master node, verify tools are installed
+jenkins --version
+docker --version
+terraform --version
+kubectl version --client
+aws --version
+ansible --version
+```
 
-# Start Jenkins service
-sudo systemctl enable jenkins
-sudo systemctl start jenkins
+**On Jenkins Instance - Verify Setup:**
+```bash
+# Check Jenkins status
 sudo systemctl status jenkins
 
-# Get initial admin password
+# Get Jenkins initial password
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+
+# Check Docker
+sudo docker ps
+
+# Verify kubectl access to EKS
+kubectl get nodes
 ```
 
-### Step 2: Configure Jenkins
+---
 
-1. Access Jenkins at `http://your-server:8080`
-2. Enter the initial admin password from above
-3. Install suggested plugins
-4. Install additional plugins:
+### Step 9: Configure Jenkins
+
+```bash
+# 1. Access Jenkins Web UI
+# Open browser: http://<jenkins_public_ip>:8080
+
+# 2. Login with initial password from previous step
+# 3. Install recommended plugins (Jenkins will prompt)
+# 4. Create admin user account
+# 5. Configure Jenkins URL (optional)
+```
+
+**Jenkins Configuration Steps:**
+1. **Install Plugins:**
+   - Docker
    - Docker Pipeline
-   - Kubernetes Plugin
-   - Ansible Plugin
-   - AWS Steps
-   - Blue Ocean
-   - Git Plugin
+   - Kubernetes
+   - Ansible
+   - Git
 
-### Step 3: Add Jenkins Credentials
+2. **Add Credentials:**
+   - AWS Credentials
+   - GitHub/GitLab credentials
+   - Docker Registry credentials
 
-Navigate to **Jenkins → Manage Jenkins → Credentials → Global**
-
-**Add AWS Credentials:**
-- Kind: AWS Credentials
-- ID: `aws-credentials`
-- Access Key ID: [Your AWS Access Key]
-- Secret Access Key: [Your AWS Secret Key]
-
-**Add Kubeconfig:**
-- Kind: Secret file
-- ID: `kubeconfig-media-compressor`
-- File: Upload `~/.kube/config`
-
-**Add DockerHub Credentials (Optional):**
-- Kind: Username with password
-- ID: `dockerhub-credentials`
-- Username: [Your DockerHub username]
-- Password: [Your DockerHub password]
-
-**Add SonarQube Token:**
-- Kind: Secret text
-- ID: `sonarqube-token`
-- Secret: [Your SonarQube token]
-
-### Step 4: Create Jenkins Pipeline Job
-
-1. **New Item** → Name: `media-compressor-deployment`
-2. **Type:** Pipeline
-3. **Pipeline section:**
-   - Definition: Pipeline script from SCM
-   - SCM: Git
-   - Repository URL: [Your repository URL]
-   - Script Path: `jenkins/Jenkinsfile`
-   - Branch: `*/main`
-
-4. **Build Triggers:**
-   - GitHub push trigger (if using GitHub)
-   - Poll SCM: `H/5 * * * *` (every 5 minutes)
-
-5. **Save** and trigger manually to test
+3. **Create Pipeline Job:**
+   - Create new Pipeline
+   - Use `jenkins/Jenkinsfile` from repository
 
 ---
 
-## 📊 Monitoring Setup
-
-### Step 1: Deploy Monitoring Stack with Ansible
+### Step 10: Build and Push Container Images
 
 ```bash
-cd ansible
+# SSH into Jenkins master node
+ssh -i .ssh/jenkins_key.pem ec2-user@<jenkins_public_ip>
 
-# Update inventory with your cluster details
-# Edit: ansible/inventory
+# Clone your repository
+git clone https://github.com/SaikiranAsamwar/Media-Compressor-Devops.git
+cd Media-Compressor-Devops
 
-# Deploy complete monitoring stack (Prometheus + Grafana)
-ansible-playbook -i inventory monitoring-playbook.yml \
-    --extra-vars "monitoring_namespace=monitoring" \
-    --extra-vars "prometheus_retention=30d" \
-    --extra-vars "grafana_admin_password=admin123"
-```
+# Login to ECR
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-west-2.amazonaws.com
 
-### Step 2: Access Monitoring Services
+# Build backend image
+cd backend
+docker build -t media-compressor-backend:latest .
+docker tag media-compressor-backend:latest <account-id>.dkr.ecr.us-west-2.amazonaws.com/backend:latest
+docker push <account-id>.dkr.ecr.us-west-2.amazonaws.com/backend:latest
 
-```bash
-# Get Grafana service URL
-kubectl get svc grafana-service -n monitoring
+# Build frontend image
+cd ../frontend
+docker build -t media-compressor-frontend:latest .
+docker tag media-compressor-frontend:latest <account-id>.dkr.ecr.us-west-2.amazonaws.com/frontend:latest
+docker push <account-id>.dkr.ecr.us-west-2.amazonaws.com/frontend:latest
 
-# If using ClusterIP, port forward
-kubectl port-forward svc/grafana-service -n monitoring 3000:3000
-
-# Access Grafana at http://localhost:3000
-# Username: admin
-# Password: admin123
-```
-
-### Step 3: Configure Grafana
-
-1. Login to Grafana with admin/admin123
-2. Data Sources → Add Prometheus
-   - URL: `http://prometheus-service:9090`
-   - Save
-3. Dashboards → Import
-   - Import provided dashboards or create custom ones
-4. Alerts → Configure alert rules
-
----
-
-## 🎯 Deployment Execution
-
-### Method 1: Using Jenkins Pipeline (Recommended for Production)
-
-```bash
-# Access Jenkins at http://your-server:8080
-# Navigate to: media-compressor-deployment
-# Click: Build Now
-# Jenkins pipeline will automatically:
-# 1. Build and test code
-# 2. Create Docker images
-# 3. Scan for vulnerabilities
-# 4. Push to ECR
-# 5. Deploy via Ansible
-# 6. Setup monitoring
-# 7. Run health checks
-```
-
-### Method 2: Manual Ansible Deployment
-
-```bash
-cd ansible
-
-# Deploy application and monitoring
-ansible-playbook -i inventory site.yml \
-    --extra-vars "image_tag=v1" \
-    --extra-vars "backend_image=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend" \
-    --extra-vars "frontend_image=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-frontend"
-```
-
-### Method 3: Manual Kubernetes Deployment
-
-```bash
-cd k8s
-
-# Make deployment script executable
-chmod +x deploy-to-eks.sh
-
-# Run deployment
-./deploy-to-eks.sh
+# Verify images in ECR
+aws ecr describe-images --repository-name backend --region us-west-2
+aws ecr describe-images --repository-name frontend --region us-west-2
 ```
 
 ---
 
-## ✅ Verification & Testing
-
-### Verify Infrastructure
+### Step 11: Deploy Applications to Kubernetes
 
 ```bash
-# Check EKS cluster
-kubectl get nodes -o wide
-kubectl cluster-info
-kubectl top nodes
+# From Jenkins master node or your local machine with kubectl configured
 
-# Check Terraform outputs
-cd terraform && terraform output
-cd ..
+# Update image references in Kubernetes manifests
+# Edit k8s/backend-deployment.yaml and k8s/frontend-deployment.yaml
+# Replace image URLs with your ECR URLs
+
+# Deploy backend
+kubectl apply -f k8s/backend-deployment.yaml
+
+# Deploy frontend
+kubectl apply -f k8s/frontend-deployment.yaml
+
+# Verify deployments
+kubectl get deployments -n media_compressor
+kubectl get pods -n media_compressor
+kubectl get svc -n media_compressor
 ```
 
-### Verify Application Deployment
+**Expected Output:**
+```
+NAME      READY   UP-TO-DATE   AVAILABLE   AGE
+backend   2/2     2            2           2m
+frontend  2/2     2            2           2m
+
+NAME                     READY   STATUS    RESTARTS   AGE
+backend-xxxx-yyyy        1/1     Running   0          2m
+backend-xxxx-zzzz        1/1     Running   0          2m
+frontend-xxxx-aaaa       1/1     Running   0          2m
+frontend-xxxx-bbbb       1/1     Running   0          2m
+```
+
+---
+
+### Step 12: Configure Monitoring (Prometheus & Grafana)
 
 ```bash
-# Check pods
-kubectl get pods -n media-compressor
-kubectl get pods -n monitoring
-
-# Check services
-kubectl get svc -n media-compressor
+# Check monitoring deployments
+kubectl get deployments -n monitoring
 kubectl get svc -n monitoring
 
-# Check deployments
-kubectl get deployments -n media-compressor
+# Access Prometheus
+kubectl port-forward -n monitoring svc/prometheus 9090:9090 &
+# Open: http://localhost:9090
 
-# Check logs
-kubectl logs -f deployment/backend-deployment -n media-compressor
-kubectl logs -f deployment/frontend-deployment -n media-compressor
-```
-
-### Health Checks
-
-```bash
-# Get service URLs
-FRONTEND_URL=$(kubectl get svc frontend-service -n media-compressor -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-BACKEND_URL=$(kubectl get svc backend-service -n media-compressor -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-
-# Test endpoints
-curl -f http://${FRONTEND_URL}/
-curl -f http://${BACKEND_URL}/health
-curl -f http://${BACKEND_URL}/api/health
-```
-
-### Load Testing
-
-```bash
-# Install Apache Bench
-sudo yum install -y httpd-tools
-
-# Run load test
-ab -n 100 -c 10 http://${FRONTEND_URL}/
-
-# Monitor during load test
-kubectl top pods -n media-compressor
+# Access Grafana
+kubectl port-forward -n monitoring svc/grafana 3000:3000 &
+# Open: http://localhost:3000
+# Default credentials: admin / admin
 ```
 
 ---
 
-## 🛠️ Troubleshooting
+## 🔧 Infrastructure Components
 
-### Issue: Docker Build Failure
+### 1. VPC & Networking
+- **VPC CIDR**: 10.0.0.0/16
+- **Public Subnets**: 10.0.0.0/20, 10.0.16.0/20, 10.0.32.0/20
+- **Private Subnets**: 10.0.48.0/20, 10.0.64.0/20, 10.0.80.0/20 (EKS)
+- **Database Subnets**: 10.0.96.0/20, 10.0.112.0/20, 10.0.128.0/20
+- **NAT Gateway**: For private subnet internet access
+- **Internet Gateway**: For public subnet internet access
 
-**Symptoms:** `docker build` returns exit code 1
+### 2. EKS Cluster
+- **Cluster Name**: media-compressor-cluster
+- **Kubernetes Version**: Latest stable
+- **Node Group**: 2 x t3.medium (configurable)
+- **Auto Scaling**: 1-4 nodes
+- **Storage**: EFS for persistent volumes
 
-**Solutions:**
-```bash
-# 1. Check Docker daemon
-docker ps
-# If failed, start Docker Desktop
+### 3. DocumentDB Database
+- **Engine**: MongoDB-compatible
+- **Instance Type**: db.t3.medium
+- **Cluster**: 3 nodes (1 primary + 2 replicas)
+- **Backup**: Automatic daily backups
+- **Encryption**: KMS encryption at rest
 
-# 2. Clean Docker system
-docker system prune -f
-docker volume prune -f
+### 4. ECR (Container Registry)
+- **backend**: For Node.js API images
+- **frontend**: For React UI images
+- **Auto Scanning**: Enabled for security vulnerabilities
+- **Lifecycle Policy**: Keep last 5 images
 
-# 3. Build with verbose output
-docker build -t test:latest ./backend --no-cache -v
+### 5. Jenkins Master Node
+- **OS**: Amazon Linux 2
+- **Instance Type**: t3.medium
+- **Storage**: 50GB root + 100GB data volume
+- **Pre-installed Tools**:
+  - Jenkins
+  - Docker
+  - Terraform
+  - kubectl
+  - AWS CLI
+  - Ansible
+  - Python3
 
-# 4. Check Dockerfile exists
-cat backend/Dockerfile
+### 6. Monitoring Stack
+- **Prometheus**: Metrics collection and alerting
+- **Grafana**: Visualization and dashboards
+- **CloudWatch**: AWS native monitoring
 
-# 5. Delete node_modules cache
-rm -rf backend/node_modules
-docker build -t test:latest ./backend
+---
+
+## 📊 Deployment Process Flow
+
 ```
-
-### Issue: Terraform Apply Fails
-
-**Symptoms:** `terraform apply` shows errors
-
-**Solutions:**
-```bash
-# 1. Check AWS credentials
-aws sts get-caller-identity
-
-# 2. Validate configuration
-terraform validate
-
-# 3. Refresh state
-terraform refresh
-
-# 4. Check specific resource
-terraform state show aws_eks_cluster.media_compressor
-
-# 5. Plan before apply
-terraform plan
-
-# 6. Full debug output
-TF_LOG=DEBUG terraform apply
-```
-
-### Issue: kubectl Cannot Connect
-
-**Symptoms:** `kubectl get nodes` fails
-
-**Solutions:**
-```bash
-# 1. Update kubeconfig
-aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-
-# 2. Check cluster exists
-aws eks describe-cluster --name ${CLUSTER_NAME} --region ${AWS_REGION}
-
-# 3. Verify IAM permissions
-aws iam get-user
-
-# 4. Check kubeconfig file
-cat ~/.kube/config
-
-# 5. Test direct connection
-kubectl cluster-info --context arn:aws:eks:${AWS_REGION}:${AWS_ACCOUNT_ID}:cluster/${CLUSTER_NAME}
-```
-
-### Issue: Pods Not Starting
-
-**Symptoms:** Pods stuck in Pending/CrashLoopBackOff
-
-**Solutions:**
-```bash
-# 1. Check pod events
-kubectl describe pod <pod-name> -n media-compressor
-
-# 2. Check pod logs
-kubectl logs <pod-name> -n media-compressor
-
-# 3. Check resource availability
-kubectl top pods -n media-compressor
-kubectl top nodes
-
-# 4. Check secrets exist
-kubectl get secrets -n media-compressor
-
-# 5. Delete and recreate pod
-kubectl delete pod <pod-name> -n media-compressor
-```
-
-### Issue: Services Not Accessible
-
-**Symptoms:** LoadBalancer URL not working
-
-**Solutions:**
-```bash
-# 1. Check service status
-kubectl get svc -n media-compressor
-kubectl describe svc backend-service -n media-compressor
-
-# 2. Check security groups
-aws ec2 describe-security-groups --region ${AWS_REGION}
-
-# 3. Check service endpoints
-kubectl get endpoints -n media-compressor
-
-# 4. Port forward for testing
-kubectl port-forward svc/backend-service 3000:3000 -n media-compressor
-
-# 5. Check network policies
-kubectl get networkpolicies -n media-compressor
+1. Clone Repository
+   ↓
+2. Configure AWS Credentials
+   ↓
+3. Update terraform.tfvars
+   ↓
+4. terraform init
+   ↓
+5. terraform plan
+   ↓
+6. terraform apply (15-20 minutes)
+   ↓
+7. Configure kubectl
+   ↓
+8. Access Jenkins Master
+   ↓
+9. Configure Jenkins
+   ↓
+10. Build Container Images
+    ↓
+11. Push to ECR
+    ↓
+12. Deploy to Kubernetes
+    ↓
+13. Configure Monitoring
+    ↓
+✅ Application Live!
 ```
 
 ---
 
-## 🔧 Maintenance
+## 🌐 Accessing the Application
 
-### Regular Tasks
-
-#### Update Application
+### Backend API
 ```bash
-# Build new version
-docker build -t ${IMAGE_PREFIX}/media-compressor-backend:v2 ./backend
+# Get backend service endpoint
+kubectl get svc backend -n media_compressor
 
-# Push to ECR
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v2
+# Port forward (for local testing)
+kubectl port-forward svc/backend 3000:3000 -n media_compressor
 
-# Update deployment
-kubectl set image deployment/backend-deployment \
-    backend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v2 \
-    -n media-compressor
-
-# Monitor rollout
-kubectl rollout status deployment/backend-deployment -n media-compressor
+# Access API
+curl http://localhost:3000/api/health
 ```
 
-#### Scale Application
+### Frontend Application
 ```bash
-# Scale backend
-kubectl scale deployment backend-deployment --replicas=5 -n media-compressor
+# Get frontend service endpoint
+kubectl get svc frontend -n media_compressor
 
-# Scale frontend
-kubectl scale deployment frontend-deployment --replicas=3 -n media-compressor
+# Port forward (for local testing)
+kubectl port-forward svc/frontend 80:80 -n media_compressor
 
-# Check scaling
-kubectl get hpa -n media-compressor
+# Access in browser
+# http://localhost
 ```
 
-#### Monitor Resources
+### Jenkins Dashboard
+```
+URL: http://<jenkins_public_ip>:8080
+Default User: admin
+Password: (Set during initial setup)
+```
+
+### Monitoring Dashboards
+```
+Prometheus: http://<jenkins_public_ip>:9090
+Grafana: http://<jenkins_public_ip>:3000
+```
+
+---
+
+## 📈 Monitoring & Logs
+
+### View Pod Logs
+```bash
+# Backend logs
+kubectl logs deployment/backend -n media_compressor -f
+
+# Frontend logs
+kubectl logs deployment/frontend -n media_compressor -f
+
+# Jenkins logs
+sudo journalctl -u jenkins -f
+```
+
+### View Pod Events
+```bash
+# Check pod events
+kubectl describe pod <pod-name> -n media_compressor
+
+# Check deployment events
+kubectl describe deployment backend -n media_compressor
+```
+
+### Monitor Resource Usage
 ```bash
 # Check node resources
 kubectl top nodes
-kubectl describe nodes
 
 # Check pod resources
-kubectl top pods -n media-compressor
-kubectl top pods -n monitoring
+kubectl top pods -n media_compressor
 
-# Check cluster events
-kubectl get events -A --sort-by='.lastTimestamp'
+# Watch pod status
+kubectl get pods -n media_compressor --watch
 ```
 
-#### Backup Strategy
+### CloudWatch Logs
 ```bash
-# Export Kubernetes configs
-kubectl get all -n media-compressor -o yaml > backup-k8s-$(date +%Y%m%d).yaml
+# View Jenkins logs
+aws logs tail /aws/ec2/jenkins --follow
 
-# Backup DocumentDB
-aws docdb create-db-cluster-snapshot \
-    --db-cluster-identifier media-compressor-docdb-cluster \
-    --db-cluster-snapshot-identifier backup-$(date +%Y%m%d)
+# List all log groups
+aws logs describe-log-groups
 
-# Check backups
-aws docdb describe-db-cluster-snapshots
-```
-
-#### Security Updates
-```bash
-# Update EKS cluster version
-aws eks update-cluster-version \
-    --name ${CLUSTER_NAME} \
-    --kubernetes-version 1.28
-
-# Update node groups
-aws eks update-nodegroup-version \
-    --cluster-name ${CLUSTER_NAME} \
-    --nodegroup-name media-compressor-nodes
-
-# Scan images for vulnerabilities
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-    aquasec/trivy image ${IMAGE_PREFIX}/media-compressor-backend:latest
+# View specific log stream
+aws logs tail /aws/ec2/jenkins --stream-name <stream-name>
 ```
 
 ---
 
-## 📖 Useful Resources & Commands
+## 🐛 Troubleshooting
 
-### Kubectl Cheat Sheet
+### Issue 1: EKS Cluster Not Accessible
 ```bash
-# Get all resources
-kubectl get all -A
-kubectl get all -n media-compressor
+# Verify cluster status
+aws eks describe-cluster --name media-compressor-cluster --region us-west-2
 
-# Describe resources
-kubectl describe deployment backend-deployment -n media-compressor
-kubectl describe pod <pod-name> -n media-compressor
+# Update kubeconfig
+aws eks update-kubeconfig --region us-west-2 --name media-compressor-cluster
 
-# View logs
-kubectl logs -f deployment/backend-deployment -n media-compressor
-kubectl logs --tail=100 deployment/backend-deployment -n media-compressor
-
-# Execute commands in pod
-kubectl exec -it <pod-name> -n media-compressor -- /bin/bash
-
-# Port forwarding
-kubectl port-forward pod/<pod-name> 3000:3000 -n media-compressor
-kubectl port-forward svc/backend-service 3000:3000 -n media-compressor
-
-# Delete resources
-kubectl delete deployment backend-deployment -n media-compressor
-kubectl delete namespace media-compressor
-
-# Troubleshooting
-kubectl get events -n media-compressor
-kubectl api-resources
-kubectl explain deployment
+# Test connection
+kubectl cluster-info
 ```
 
-### Terraform Commands
+### Issue 2: Pods Not Running
 ```bash
-# Initialize workspace
-terraform init -upgrade
+# Check pod status
+kubectl get pods -n media_compressor
 
-# Format code
-terraform fmt -recursive
+# Describe problematic pod
+kubectl describe pod <pod-name> -n media_compressor
 
-# Validate configuration
-terraform validate
+# Check logs
+kubectl logs <pod-name> -n media_compressor
 
-# Plan changes
-terraform plan -out=tfplan
+# Common issues:
+# - Image pull errors: Check ECR URL and credentials
+# - Resource constraints: Scale down or increase node size
+# - Database connection: Verify DocumentDB endpoint and security groups
+```
 
-# Apply changes
-terraform apply tfplan
+### Issue 3: Database Connection Issues
+```bash
+# Verify DocumentDB security group allows access
+aws ec2 describe-security-groups --filter Name=group-name,Values=*documentdb*
+
+# Test connection from a pod
+kubectl exec -it <pod-name> -n media_compressor -- bash
+# Inside pod:
+nslookup <documentdb-endpoint>
+telnet <documentdb-endpoint> 27017
+```
+
+### Issue 4: Jenkins Agent Connection Issues
+```bash
+# Check Jenkins service status
+sudo systemctl status jenkins
+
+# View Jenkins logs
+sudo tail -f /var/log/jenkins/jenkins.log
+
+# Restart Jenkins
+sudo systemctl restart jenkins
+```
+
+### Issue 5: Out of Memory or CPU
+```bash
+# Scale up deployment replicas (temporary)
+kubectl scale deployment backend --replicas=3 -n media_compressor
+
+# Increase node capacity
+# Edit terraform variables and re-apply
+cd terraform
+# Change desired_capacity, max_capacity
+terraform plan -out=scale.plan
+terraform apply scale.plan
+```
+
+---
+
+## 🧹 Cleanup
+
+### Destroy All Infrastructure (WARNING: Permanent)
+```bash
+cd terraform
+
+# Review what will be destroyed
+terraform plan -destroy
 
 # Destroy infrastructure
 terraform destroy
 
-# Show state
-terraform show
-terraform state list
-terraform state show aws_eks_cluster.media_compressor
-
-# Debug
-TF_LOG=DEBUG terraform plan
+# Confirm by typing 'yes' when prompted
 ```
 
-### Docker Commands
+### Partial Cleanup Options
+
 ```bash
-# Build image
-docker build -t image:tag .
+# Remove only Jenkins instance
+terraform destroy -target=aws_instance.jenkins
 
-# Push to registry
-docker push registry/image:tag
+# Remove only EKS cluster
+terraform destroy -target=module.eks
 
-# Run container
-docker run -d -p 3000:3000 image:tag
-
-# View logs
-docker logs container-id
-
-# List images/containers
-docker images
-docker ps -a
-
-# Clean up
-docker system prune -f
-docker image prune -a
+# Remove only DocumentDB
+terraform destroy -target=aws_docdb_cluster.main
 ```
 
-### AWS Commands
+### Manual Cleanup (If Terraform fails)
 ```bash
-# EKS operations
-aws eks list-clusters
-aws eks describe-cluster --name ${CLUSTER_NAME}
-aws eks update-kubeconfig --name ${CLUSTER_NAME}
+# Delete the state file
+rm terraform.tfstate terraform.tfstate.backup
 
-# ECR operations
-aws ecr describe-repositories
-aws ecr describe-images --repository-name ${IMAGE_PREFIX}/media-compressor-backend
-
-# DocumentDB operations
-aws docdb describe-db-clusters
-aws docdb describe-db-instances
-
-# IAM operations
-aws iam list-users
-aws iam get-user
-aws iam list-access-keys
+# Manually delete resources via AWS Console if needed
+# 1. EC2 Instances
+# 2. Load Balancers
+# 3. EKS Cluster
+# 4. DocumentDB Cluster
+# 5. VPC and related resources
 ```
 
 ---
 
-## 🎯 Quick Start Summary
+## 📝 Important Files & Their Purpose
 
-For a complete deployment from scratch:
-
-```bash
-# 1. Setup environment
-export AWS_REGION=us-west-2
-export AWS_ACCOUNT_ID=514439471441
-export CLUSTER_NAME=media-compressor-cluster
-export IMAGE_PREFIX=saikiranasamwar4
-
-# 2. Deploy infrastructure
-cd terraform
-terraform init
-terraform apply -auto-approve
-cd ..
-
-# 3. Build and push images
-docker build -t ${IMAGE_PREFIX}/media-compressor-backend:v1 ./backend
-docker build -t ${IMAGE_PREFIX}/media-compressor-frontend:v1 ./frontend
-# Push to ECR (follow ECR push steps above)
-
-# 4. Deploy application
-cd ansible
-ansible-playbook -i inventory site.yml
-cd ..
-
-# 5. Verify deployment
-kubectl get all -n media-compressor
-kubectl get all -n monitoring
+```
+Media-Compressor-Devops/
+├── terraform/                          # Infrastructure as Code
+│   ├── main.tf                         # Entry point
+│   ├── providers.tf                    # Provider configuration
+│   ├── variables.tf                    # Variable definitions
+│   ├── terraform.tfvars                # Variable values (YOUR CONFIG)
+│   ├── vpc.tf                          # VPC and networking
+│   ├── eks.tf                          # EKS cluster
+│   ├── documentdb.tf                   # Database setup
+│   ├── ecr.tf                          # Container registry
+│   ├── kubernetes.tf                   # K8s resources
+│   ├── monitoring.tf                   # Prometheus & Grafana
+│   ├── security-groups.tf              # Security configurations
+│   ├── jenkins-instance.tf             # Jenkins master node
+│   ├── jenkins-init.sh                 # Jenkins initialization
+│   ├── outputs.tf                      # Output values
+│   └── data-sources.tf                 # Data sources
+│
+├── backend/                            # Node.js Express API
+│   ├── Dockerfile                      # Backend container image
+│   ├── package.json                    # Dependencies
+│   └── src/                            # Source code
+│
+├── frontend/                           # React UI
+│   ├── Dockerfile                      # Frontend container image
+│   ├── package.json                    # Dependencies
+│   └── nginx.conf                      # Nginx configuration
+│
+├── k8s/                                # Kubernetes manifests
+│   ├── backend-deployment.yaml
+│   ├── frontend-deployment.yaml
+│   ├── namespace.yaml
+│   ├── ingress.yaml
+│   ├── hpa.yaml
+│   ├── storage.yaml
+│   └── prometheus/
+│
+├── jenkins/                            # CI/CD Pipeline
+│   └── Jenkinsfile                     # Pipeline definition
+│
+├── ansible/                            # Infrastructure provisioning
+│   ├── playbook.yml
+│   ├── deployment-playbook.yml
+│   └── inventory
+│
+└── README.md                           # This file
 ```
 
 ---
 
-## 📞 Support & Documentation
+## 🔐 Security Best Practices
 
-- **Main Documentation:** This file (README.md)
-- **Troubleshooting Scripts:** `./troubleshoot.sh` (Linux/Mac) or `./troubleshoot.ps1` (Windows)
-- **Deployment Automation:** `./deploy.bat` (Windows)
-- **Infrastructure Code:** `./terraform/`
-- **Kubernetes Manifests:** `./k8s/`
-- **Ansible Playbooks:** `./ansible/`
-- **CI/CD Pipeline:** `./jenkins/Jenkinsfile`
+1. **Credentials Management:**
+   - Use AWS IAM roles instead of access keys when possible
+   - Rotate credentials regularly
+   - Never commit credentials to git
+   - Use `.gitignore` to exclude sensitive files
+
+2. **Network Security:**
+   - Use VPC security groups to restrict traffic
+   - Enable VPC Flow Logs for monitoring
+   - Use private subnets for databases and compute
+   - Enable encryption in transit (TLS/SSL)
+
+3. **Data Protection:**
+   - Enable encryption at rest for DocumentDB
+   - Use KMS keys for encryption
+   - Enable automated backups
+   - Test backup restoration regularly
+
+4. **Access Control:**
+   - Use IAM roles with least privilege
+   - Enable MFA for AWS console access
+   - Use RBAC in Kubernetes
+   - Audit all changes with CloudTrail
+
+5. **Secrets Management:**
+   - Store passwords in AWS Secrets Manager
+   - Use environment variables for sensitive data
+   - Rotate secrets regularly
+   - Never hardcode secrets
 
 ---
 
-**🎉 Your Media Compressor application is now ready for deployment with full CI/CD, monitoring, and production-ready infrastructure!**
+## 📞 Common Commands Reference
 
-## 🔧 Prerequisites
-
-### Required Tools
 ```bash
-# Install AWS CLI
-curl "https://awscli.amazonaws.com/AWSCLIV2.pkg" -o "AWSCLIV2.pkg"
-sudo installer -pkg AWSCLIV2.pkg -target /
+# Terraform
+terraform init              # Initialize Terraform
+terraform validate          # Validate configuration
+terraform plan             # Preview changes
+terraform apply            # Apply changes
+terraform destroy          # Destroy resources
+terraform output           # Show outputs
 
-# Install kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+# AWS CLI
+aws eks list-clusters                                  # List EKS clusters
+aws eks describe-cluster --name <cluster-name>        # Cluster details
+aws docdb describe-db-clusters                        # List DocumentDB
+aws ecr describe-repositories                         # List ECR repos
 
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Install Terraform
-wget https://releases.hashicorp.com/terraform/1.5.0/terraform_1.5.0_linux_amd64.zip
-unzip terraform_1.5.0_linux_amd64.zip
-sudo mv terraform /usr/local/bin/
-
-# Install Ansible
-pip3 install ansible
-ansible-galaxy collection install kubernetes.core
-ansible-galaxy collection install community.general
+# kubectl
+kubectl cluster-info                    # Cluster information
+kubectl get nodes                       # List nodes
+kubectl get pods -A                     # All pods
+kubectl get svc -A                      # All services
+kubectl apply -f <file>                 # Apply manifest
+kubectl delete -f <file>                # Delete resource
+kubectl logs <pod> -n <namespace>       # Pod logs
+kubectl describe pod <pod> -n <namespace>  # Pod details
 ```
-
-### AWS Prerequisites
-```bash
-# Configure AWS CLI
-aws configure
-# AWS Access Key ID: [Your Access Key]
-# AWS Secret Access Key: [Your Secret Key]
-# Default region name: us-west-2
-# Default output format: json
-
-# Verify AWS configuration
-aws sts get-caller-identity
-aws ec2 describe-regions --output table
-```
-
-### Environment Variables
-```bash
-export AWS_REGION=us-west-2
-export AWS_ACCOUNT_ID=514439471441
-export CLUSTER_NAME=media-compressor-cluster
-export IMAGE_PREFIX=saikiranasamwar4
-export PROJECT_NAME=media-compressor
-```
-
-## 🏗️ Infrastructure Setup
-
-### Step 1: Clone the Repository
-```bash
-git clone <your-repository-url>
-cd Compressorr
-```
-
-### Step 2: Initialize Terraform
-```bash
-cd terraform
-
-# Initialize Terraform
-terraform init
-
-# Validate configuration
-terraform validate
-
-# Plan the deployment
-terraform plan -var="cluster_name=${CLUSTER_NAME}" \
-                -var="region=${AWS_REGION}" \
-                -var="account_id=${AWS_ACCOUNT_ID}"
-```
-
-### Step 3: Deploy Infrastructure
-```bash
-# Apply Terraform configuration
-terraform apply -var="cluster_name=${CLUSTER_NAME}" \
-                 -var="region=${AWS_REGION}" \
-                 -var="account_id=${AWS_ACCOUNT_ID}" \
-                 -auto-approve
-
-# This creates:
-# - Custom VPC with public/private subnets
-# - EKS cluster with managed node groups
-# - DocumentDB cluster
-# - ECR repositories
-# - Security groups
-# - IAM roles and policies
-```
-
-### Step 4: Configure kubectl
-```bash
-# Update kubeconfig
-aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-
-# Verify cluster access
-kubectl cluster-info
-kubectl get nodes
-```
-
-## 🔨 Application Setup
-
-### Step 1: Build Docker Images
-```bash
-# Navigate to project root
-cd ..
-
-# Build backend image
-docker build -t ${IMAGE_PREFIX}/media-compressor-backend:v1 ./backend
-
-# Build frontend image
-docker build -t ${IMAGE_PREFIX}/media-compressor-frontend:v1 ./frontend
-
-# Verify images
-docker images | grep ${IMAGE_PREFIX}
-```
-
-### Step 2: Push Images to ECR
-```bash
-# Login to ECR
-aws ecr get-login-password --region ${AWS_REGION} | \
-    docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-
-# Tag images for ECR
-docker tag ${IMAGE_PREFIX}/media-compressor-backend:v1 \
-    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v1
-
-docker tag ${IMAGE_PREFIX}/media-compressor-frontend:v1 \
-    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-frontend:v1
-
-# Push to ECR
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v1
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-frontend:v1
-```
-
-### Step 3: Create Kubernetes Secrets
-```bash
-# Get DocumentDB endpoint from Terraform output
-DOCDB_ENDPOINT=$(terraform output -raw documentdb_endpoint)
-
-# Create namespace
-kubectl create namespace media-compressor
-
-# Create DocumentDB secret
-kubectl create secret generic docdb-credentials \
-    --from-literal=username=admin \
-    --from-literal=password=YourSecurePassword123! \
-    --from-literal=endpoint=${DOCDB_ENDPOINT} \
-    --namespace=media-compressor
-```
-
-## 🚀 CI/CD Pipeline Setup
-
-### Step 1: Install Jenkins
-```bash
-# Install Java
-sudo yum update -y
-sudo yum install -y java-11-amazon-corretto
-
-# Install Jenkins
-sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
-sudo yum install -y jenkins
-
-# Start Jenkins
-sudo systemctl enable jenkins
-sudo systemctl start jenkins
-
-# Get initial admin password
-sudo cat /var/lib/jenkins/secrets/initialAdminPassword
-```
-
-### Step 2: Configure Jenkins
-```bash
-# Access Jenkins at http://your-server:8080
-# Install suggested plugins + additional:
-# - Docker Pipeline
-# - Kubernetes Plugin
-# - Ansible Plugin
-# - AWS Steps
-# - Blue Ocean
-```
-
-### Step 3: Add Jenkins Credentials
-Navigate to Jenkins → Manage Jenkins → Credentials → Global → Add Credentials:
-
-1. **AWS Credentials**
-   - Kind: AWS Credentials
-   - ID: aws-credentials
-   - Access Key ID: [Your AWS Access Key]
-   - Secret Access Key: [Your AWS Secret Key]
-
-2. **Kubeconfig**
-   - Kind: Secret file
-   - ID: kubeconfig-media-compressor
-   - File: Upload your ~/.kube/config
-
-3. **DockerHub Credentials** (if needed)
-   - Kind: Username with password
-   - ID: dockerhub-credentials
-   - Username: [Your DockerHub username]
-   - Password: [Your DockerHub password]
-
-### Step 4: Create Jenkins Pipeline
-1. New Item → Pipeline
-2. Name: media-compressor-deployment
-3. Pipeline Definition: Pipeline script from SCM
-4. SCM: Git
-5. Repository URL: [Your repository URL]
-6. Script Path: jenkins/Jenkinsfile
-
-## 📊 Monitoring Setup
-
-### Step 1: Deploy Monitoring Stack via Ansible
-```bash
-cd ansible
-
-# Update inventory with your values
-# Edit inventory file with correct endpoints and passwords
-
-# Deploy monitoring stack
-ansible-playbook -i inventory monitoring-playbook.yml \
-    --extra-vars "monitoring_namespace=monitoring" \
-    --extra-vars "prometheus_retention=30d" \
-    --extra-vars "grafana_admin_password=admin123"
-```
-
-### Step 2: Access Monitoring Services
-```bash
-# Get Grafana service URL
-kubectl get svc grafana-service -n monitoring
-
-# Port forward if using ClusterIP
-kubectl port-forward svc/grafana-service -n monitoring 3000:3000
-
-# Access Grafana at http://localhost:3000
-# Username: admin
-# Password: admin123
-```
-
-## 🎯 Deployment Execution
-
-### Method 1: Using Jenkins Pipeline (Recommended)
-```bash
-# Trigger pipeline manually or via webhook
-# Pipeline will:
-# 1. Build and test code
-# 2. Create Docker images
-# 3. Push to ECR
-# 4. Deploy via Ansible
-# 5. Setup monitoring
-# 6. Run health checks
-```
-
-### Method 2: Manual Ansible Deployment
-```bash
-cd ansible
-
-# Deploy application and monitoring
-ansible-playbook -i inventory site.yml \
-    --extra-vars "image_tag=v1" \
-    --extra-vars "backend_image=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend" \
-    --extra-vars "frontend_image=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-frontend"
-```
-
-### Method 3: Manual Kubernetes Deployment
-```bash
-cd k8s
-
-# Make deployment script executable
-chmod +x deploy-to-eks.sh
-
-# Run deployment script
-./deploy-to-eks.sh
-```
-
-## ✅ Verification & Testing
-
-### Step 1: Check Infrastructure
-```bash
-# Verify EKS cluster
-kubectl get nodes -o wide
-
-# Check cluster info
-kubectl cluster-info
-
-# Verify Terraform resources
-terraform output
-```
-
-### Step 2: Check Application Deployment
-```bash
-# Check application pods
-kubectl get pods -n media-compressor
-
-# Check services
-kubectl get svc -n media-compressor
-
-# Check deployments
-kubectl get deployments -n media-compressor
-
-# Check logs
-kubectl logs -f deployment/backend-deployment -n media-compressor
-kubectl logs -f deployment/frontend-deployment -n media-compressor
-```
-
-### Step 3: Check Monitoring
-```bash
-# Check monitoring pods
-kubectl get pods -n monitoring
-
-# Check monitoring services
-kubectl get svc -n monitoring
-
-# Access Prometheus (port forward if needed)
-kubectl port-forward svc/prometheus-service -n monitoring 9090:9090
-
-# Access Grafana (port forward if needed)
-kubectl port-forward svc/grafana-service -n monitoring 3000:3000
-```
-
-### Step 4: Application Health Checks
-```bash
-# Get application URLs
-FRONTEND_URL=$(kubectl get svc frontend-service -n media-compressor -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-BACKEND_URL=$(kubectl get svc backend-service -n media-compressor -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-
-# Test frontend
-curl -f http://${FRONTEND_URL}/
-
-# Test backend API
-curl -f http://${BACKEND_URL}/health
-
-# Test backend API endpoints
-curl -f http://${BACKEND_URL}/api/health
-```
-
-### Step 5: Load Testing
-```bash
-# Install Apache Bench
-sudo yum install -y httpd-tools
-
-# Run load test
-ab -n 100 -c 10 http://${FRONTEND_URL}/
-
-# Monitor during load test
-kubectl top pods -n media-compressor
-```
-
-## 🛠️ Troubleshooting
-
-### Common Issues and Solutions
-
-#### 1. Docker Build Failures
-```bash
-# Check Docker daemon
-sudo systemctl status docker
-sudo systemctl start docker
-
-# Clear Docker cache
-docker system prune -f
-
-# Check Dockerfile syntax
-docker build --no-cache -t test ./backend
-```
-
-#### 2. Terraform Apply Failures
-```bash
-# Check AWS credentials
-aws sts get-caller-identity
-
-# Check terraform state
-terraform state list
-
-# Force refresh
-terraform refresh
-
-# Check specific resource
-terraform state show aws_eks_cluster.media_compressor
-```
-
-#### 3. Kubectl Connection Issues
-```bash
-# Update kubeconfig
-aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-
-# Check cluster status
-aws eks describe-cluster --name ${CLUSTER_NAME} --region ${AWS_REGION}
-
-# Verify IAM permissions
-aws iam get-user
-```
-
-#### 4. Pod Startup Issues
-```bash
-# Check pod events
-kubectl describe pod <pod-name> -n media-compressor
-
-# Check logs
-kubectl logs <pod-name> -n media-compressor
-
-# Check resource limits
-kubectl top pods -n media-compressor
-
-# Check secrets
-kubectl get secrets -n media-compressor
-```
-
-#### 5. LoadBalancer Not Accessible
-```bash
-# Check service
-kubectl get svc -n media-compressor
-
-# Check security groups
-aws ec2 describe-security-groups --group-names eks-cluster-sg-*
-
-# Check subnet routing
-aws ec2 describe-route-tables
-```
-
-#### 6. Monitoring Issues
-```bash
-# Check monitoring namespace
-kubectl get all -n monitoring
-
-# Restart monitoring pods
-kubectl rollout restart deployment/prometheus-server -n monitoring
-kubectl rollout restart deployment/grafana -n monitoring
-
-# Check configmaps
-kubectl get configmap -n monitoring
-```
-
-## 🔧 Maintenance
-
-### Regular Maintenance Tasks
-
-#### 1. Update Application
-```bash
-# Build new version
-docker build -t ${IMAGE_PREFIX}/media-compressor-backend:v2 ./backend
-
-# Push to ECR
-docker tag ${IMAGE_PREFIX}/media-compressor-backend:v2 \
-    ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v2
-docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v2
-
-# Update deployment
-kubectl set image deployment/backend-deployment \
-    backend=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${IMAGE_PREFIX}/media-compressor-backend:v2 \
-    -n media-compressor
-```
-
-#### 2. Scale Application
-```bash
-# Scale backend
-kubectl scale deployment backend-deployment --replicas=5 -n media-compressor
-
-# Scale frontend
-kubectl scale deployment frontend-deployment --replicas=3 -n media-compressor
-
-# Check scaling
-kubectl get pods -n media-compressor
-```
-
-#### 3. Backup and Recovery
-```bash
-# Backup application data (if using persistent volumes)
-kubectl get pv,pvc -n media-compressor
-
-# Backup DocumentDB
-aws docdb create-db-cluster-snapshot \
-    --db-cluster-identifier media-compressor-docdb-cluster \
-    --db-cluster-snapshot-identifier backup-$(date +%Y%m%d)
-
-# Export Kubernetes configs
-kubectl get all -n media-compressor -o yaml > backup-k8s-$(date +%Y%m%d).yaml
-```
-
-#### 4. Monitor Resources
-```bash
-# Check cluster resources
-kubectl top nodes
-kubectl top pods -A
-
-# Check AWS costs
-aws ce get-cost-and-usage \
-    --time-period Start=2024-11-01,End=2024-11-30 \
-    --granularity MONTHLY \
-    --metrics BlendedCost
-```
-
-#### 5. Security Updates
-```bash
-# Update EKS cluster version
-aws eks update-cluster-version \
-    --name ${CLUSTER_NAME} \
-    --kubernetes-version 1.28
-
-# Update node group
-aws eks update-nodegroup-version \
-    --cluster-name ${CLUSTER_NAME} \
-    --nodegroup-name media-compressor-nodes
-
-# Scan images for vulnerabilities
-docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-    aquasec/trivy image ${IMAGE_PREFIX}/media-compressor-backend:latest
-```
-
-## 📖 Additional Resources
-
-### Useful Commands
-```bash
-# View all resources
-kubectl get all -A
-
-# Check cluster events
-kubectl get events -A --sort-by='.lastTimestamp'
-
-# Get cluster logs
-kubectl logs -f -l app=backend -n media-compressor
-
-# Check resource usage
-kubectl describe nodes
-```
-
-### Monitoring URLs
-- **Grafana**: `http://<grafana-service-lb>/` (admin/admin123)
-- **Prometheus**: `http://<prometheus-service-lb>/`
-- **Application**: `http://<frontend-service-lb>/`
-- **Backend API**: `http://<backend-service-lb>/api`
-
-### Important Files
-- **Terraform configs**: `./terraform/`
-- **Kubernetes manifests**: `./k8s/`
-- **Ansible playbooks**: `./ansible/`
-- **Jenkins pipeline**: `./jenkins/Jenkinsfile`
-- **Docker files**: `./backend/Dockerfile`, `./frontend/Dockerfile`
 
 ---
 
-## 🎯 Quick Start Summary
+## 📚 Documentation Links
+- [Terraform Documentation](https://www.terraform.io/docs)
+- [AWS EKS Documentation](https://docs.aws.amazon.com/eks/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
+- [Jenkins Documentation](https://www.jenkins.io/doc/)
+- [Docker Documentation](https://docs.docker.com/)
 
-For a complete deployment from scratch:
+---
 
-```bash
-# 1. Setup environment
-export AWS_REGION=us-west-2
-export AWS_ACCOUNT_ID=514439471441
-export CLUSTER_NAME=media-compressor-cluster
-
-# 2. Deploy infrastructure
-cd terraform && terraform init && terraform apply -auto-approve
-
-# 3. Build and push images
-docker build -t saikiranasamwar4/media-compressor-backend:v1 ./backend
-docker build -t saikiranasamwar4/media-compressor-frontend:v1 ./frontend
-# Push to ECR (follow ECR steps above)
-
-# 4. Deploy application
-cd ansible && ansible-playbook -i inventory site.yml
-
-# 5. Verify deployment
-kubectl get all -n media-compressor
-kubectl get all -n monitoring
-```
-
-🎉 **Your Media Compressor application is now deployed with full CI/CD, monitoring, and production-ready infrastructure!**
+**Last Updated**: December 5, 2025  
+**Version**: 1.0.0  
+**Repository**: [Media-Compressor-Devops](https://github.com/SaikiranAsamwar/Media-Compressor-Devops)
