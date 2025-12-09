@@ -28,8 +28,9 @@
 24. [Step 21: Configure Jenkins](#step-21-configure-jenkins)
 25. [Step 22: Create Jenkins Pipeline](#step-22-create-jenkins-pipeline)
 26. [Step 23: Install Prometheus & Grafana](#step-23-install-prometheus--grafana)
-27. [Troubleshooting Guide](#troubleshooting-guide)
-28. [Security Best Practices](#security-best-practices)
+27. [Step 24: Complete Project Termination (Cleanup)](#step-24-complete-project-termination-cleanup)
+28. [Troubleshooting Guide](#troubleshooting-guide)
+29. [Security Best Practices](#security-best-practices)
 
 ---
 
@@ -1913,6 +1914,344 @@ aws eks list-clusters --region us-east-1
 
 # Describe cluster
 aws eks describe-cluster --name <cluster-name> --region us-east-1
+```
+
+---
+
+## 🛑 **Step 24: Complete Project Termination (Cleanup)**
+
+This section provides **detailed instructions to safely terminate all AWS resources** and clean up your deployment. Follow these steps in order to avoid orphaned resources and unexpected charges.
+
+### 24.1 Delete Kubernetes Resources
+
+First, delete all Kubernetes deployments and services:
+
+```bash
+# Delete all resources in the media-app namespace
+kubectl delete namespace media-app --region us-east-1
+
+# Verify namespace is deleted
+kubectl get namespaces | grep media-app
+```
+
+**Expected output**: Namespace should be gone (no results returned)
+
+**What this does**: Removes all pods, services, deployments, and statefulsets in the media-app namespace, including MongoDB.
+
+### 24.2 Delete Monitoring Stack
+
+```bash
+# Delete Prometheus and Grafana
+helm uninstall monitoring -n monitoring
+
+# Delete monitoring namespace
+kubectl delete namespace monitoring
+
+# Verify
+kubectl get namespaces | grep monitoring
+```
+
+**Expected output**: No monitoring namespace found
+
+### 24.3 Delete EKS Cluster
+
+```bash
+# Get cluster name
+eksctl get cluster --region us-east-1
+
+# Delete the cluster (this takes 10-15 minutes)
+eksctl delete cluster --name media-compressor-cluster --region us-east-1
+
+# Monitor progress
+eksctl get cluster --region us-east-1
+```
+
+**⏱️ This takes 10-15 minutes**
+
+**Expected output**: Cluster will disappear from list after deletion
+
+**What this does**: 
+- Terminates all EC2 nodes
+- Deletes LoadBalancers
+- Removes VPC security groups created by EKS
+- Cleans up IAM roles
+
+### 24.4 Delete ECR Repositories
+
+```bash
+# List all ECR repositories
+aws ecr describe-repositories --region us-east-1
+
+# Delete backend repository
+aws ecr delete-repository \
+  --repository-name saikiranasamwar4/backend \
+  --region us-east-1 \
+  --force
+
+# Delete frontend repository
+aws ecr delete-repository \
+  --repository-name saikiranasamwar4/frontend \
+  --region us-east-1 \
+  --force
+
+# Verify deletion
+aws ecr describe-repositories --region us-east-1
+```
+
+**Expected output**: Empty repository list or no repositories returned
+
+### 24.5 Stop Jenkins
+
+Stop the Jenkins service running on EC2:
+
+```bash
+sudo systemctl stop jenkins
+sudo systemctl disable jenkins
+
+# Verify Jenkins is stopped
+sudo systemctl status jenkins
+```
+
+**Expected output**:
+```
+● jenkins.service - LSB: Start Jenkins automation server
+     Loaded: loaded
+     Active: inactive (dead)
+```
+
+### 24.6 Stop PostgreSQL (SonarQube Database)
+
+```bash
+sudo systemctl stop postgresql
+sudo systemctl disable postgresql
+
+# Verify
+sudo systemctl status postgresql
+```
+
+### 24.7 Stop SonarQube
+
+```bash
+# Navigate to SonarQube directory
+cd ~/sonarqube/sonarqube-10.4.1.88267
+
+# Stop SonarQube
+bin/linux-x86-64/sonar.sh stop
+
+# Verify
+bin/linux-x86-64/sonar.sh status
+```
+
+### 24.8 Stop Docker
+
+```bash
+sudo systemctl stop docker
+sudo systemctl disable docker
+
+# Verify
+sudo systemctl status docker
+```
+
+### 24.9 Remove Application Code
+
+Remove cloned repositories and temporary files:
+
+```bash
+# Remove application code
+rm -rf ~/Media-Compressor-Devops
+rm -rf ~/backend ~/frontend
+
+# Remove Docker images
+docker rmi -f $(docker images -q)
+
+# Remove Jenkins data (optional - only if you won't use Jenkins again)
+sudo rm -rf /var/lib/jenkins
+
+# Remove SonarQube data
+rm -rf ~/sonarqube
+
+# Remove PostgreSQL data
+sudo rm -rf /var/lib/postgresql
+```
+
+### 24.10 Terminate EC2 Master Node
+
+Go to **AWS Console** → **EC2** → **Instances**:
+
+1. **Select** the media-compressor-master EC2 instance
+2. **Instance State** → **Terminate Instance**
+3. **Confirm** termination
+
+**Or use AWS CLI**:
+
+```bash
+# Get instance ID
+aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=media-compressor-master" \
+  --region us-east-1 \
+  --query 'Reservations[0].Instances[0].InstanceId'
+
+# Terminate instance (replace INSTANCE_ID)
+aws ec2 terminate-instances \
+  --instance-ids <INSTANCE_ID> \
+  --region us-east-1
+
+# Verify termination
+aws ec2 describe-instances \
+  --instance-ids <INSTANCE_ID> \
+  --region us-east-1 \
+  --query 'Reservations[0].Instances[0].State'
+```
+
+**Expected output**: State should be "terminated"
+
+### 24.11 Release Elastic IPs (if used)
+
+```bash
+# List all Elastic IPs
+aws ec2 describe-addresses --region us-east-1
+
+# Release Elastic IP (if you assigned one)
+aws ec2 release-address \
+  --allocation-id <ALLOCATION_ID> \
+  --region us-east-1
+```
+
+### 24.12 Delete Security Groups
+
+```bash
+# List security groups
+aws ec2 describe-security-groups --region us-east-1
+
+# Delete security groups (only custom ones, not default)
+aws ec2 delete-security-group \
+  --group-id <GROUP_ID> \
+  --region us-east-1
+```
+
+**⚠️ Note**: Cannot delete default security group or groups with dependencies
+
+### 24.13 Delete Key Pairs (if created for this project)
+
+```bash
+# List key pairs
+aws ec2 describe-key-pairs --region us-east-1
+
+# Delete key pair
+aws ec2 delete-key-pair \
+  --key-name <KEY_NAME> \
+  --region us-east-1
+
+# Verify
+aws ec2 describe-key-pairs --region us-east-1
+```
+
+### 24.14 Clean Local Machine
+
+Remove all downloaded files and configurations:
+
+```bash
+# Remove AWS CLI credentials (if applicable)
+rm -rf ~/.aws
+
+# Remove kubectl config
+rm -rf ~/.kube
+
+# Remove temporary downloads
+rm -rf ~/Downloads/eks*
+rm -rf ~/Downloads/kubectl*
+
+# Remove any temporary SSH keys
+rm -rf ~/Downloads/*.pem
+```
+
+### 24.15 Verify All Resources Deleted
+
+Run final checks to ensure everything is cleaned up:
+
+```bash
+# Check EKS clusters
+aws eks list-clusters --region us-east-1
+
+# Check ECR repositories
+aws ecr describe-repositories --region us-east-1
+
+# Check EC2 instances
+aws ec2 describe-instances \
+  --filters "Name=instance-state-name,Values=running,stopped" \
+  --region us-east-1
+
+# Check security groups (excluding default)
+aws ec2 describe-security-groups \
+  --filters "Name=group-name,Values=default" \
+  --region us-east-1 \
+  --query 'reverse(SecurityGroups)'
+```
+
+**Expected output**: 
+- No EKS clusters
+- No ECR repositories
+- No running/stopped EC2 instances (except default ones)
+- Only default security groups
+
+### 24.16 Final Bill Check
+
+Go to **AWS Billing Console**:
+
+1. **AWS Management Console** → **Billing**
+2. Check **Current Month's Bill**
+3. Verify no unexpected charges
+
+**Common charges to watch for**:
+- ❌ EKS cluster charge (~$0.10/hour)
+- ❌ EC2 instance charge (varies by type)
+- ❌ NAT Gateway charge (~$0.045/hour)
+- ❌ LoadBalancer charge (~$0.025/hour)
+- ❌ EBS volume charge (if not deleted)
+- ❌ Data transfer charges
+
+**Expected charges**: Should be minimal or zero (except AWS Free Tier usage)
+
+### 24.17 Document Resource Costs
+
+**Estimated costs** (if everything was running for 1 month):
+
+```
+EKS Cluster:          $73/month
+EC2 t3.medium (2):    $60-80/month
+NAT Gateway:          $32/month
+LoadBalancer:         $18/month
+EBS Volumes (20GB):   $5/month
+ECR Storage (1GB):    Negligible
+Total:                ~$190-210/month
+```
+
+**Cost savings by terminating**:
+- Immediate stop after completion
+- Pay only for what you use
+- No surprise bills from forgotten resources
+
+### 24.18 Termination Checklist
+
+Use this checklist to ensure nothing is forgotten:
+
+```
+☐ Delete Kubernetes namespaces (media-app, monitoring)
+☐ Delete EKS cluster
+☐ Delete ECR repositories (backend, frontend)
+☐ Stop Jenkins service
+☐ Stop PostgreSQL service
+☐ Stop SonarQube
+☐ Stop Docker
+☐ Remove application code
+☐ Remove Docker images
+☐ Terminate EC2 instance
+☐ Release Elastic IPs
+☐ Delete security groups (custom only)
+☐ Delete key pairs
+☐ Clean local machine (~/.aws, ~/.kube)
+☐ Verify all resources deleted
+☐ Check AWS billing console
 ```
 
 ---
