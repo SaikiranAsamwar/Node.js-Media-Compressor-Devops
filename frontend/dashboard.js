@@ -1,38 +1,71 @@
-// Dashboard JavaScript
+// ============================================
+// DASHBOARD PAGE
+// ============================================
 const API_URL = 'http://localhost:3000';
+
+// Wait for common.js to complete authentication
+window.addEventListener('userAuthenticated', (event) => {
+  console.log('→ Dashboard: User authenticated event received');
+  const user = event.detail;
+  
+  // Update dashboard username
+  const dashboardUsername = document.getElementById('dashboardUsername');
+  if (dashboardUsername && user) {
+    dashboardUsername.textContent = user.username;
+    console.log('✓ Dashboard username set:', user.username);
+  }
+  
+  // Load user stats
+  const token = localStorage.getItem('token');
+  if (token) {
+    loadUserStats(token);
+  }
+});
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('→ Dashboard: Page loaded');
+  
+  // Check if user is already authenticated (from common.js)
   const token = localStorage.getItem('token');
   if (!token) {
-    window.location.href = 'login.html';
+    console.log('✗ Dashboard: No token, redirecting to login');
+    window.location.href = '/login';
     return;
   }
   
-  // Fetch user data and update dashboard username
-  try {
-    const response = await fetch('/auth/me', {
-      headers: {
-        'Authorization': `Bearer ${token}`
+  console.log('✓ Dashboard: Token exists');
+  
+  // Fallback: If event doesn't fire in 2 seconds, try direct auth
+  setTimeout(async () => {
+    const dashboardUsername = document.getElementById('dashboardUsername');
+    if (dashboardUsername && !dashboardUsername.textContent) {
+      console.log('→ Dashboard: Event timeout, fetching user directly...');
+      try {
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const user = await response.json();
+          dashboardUsername.textContent = user.username;
+          loadUserStats(token);
+          console.log('✓ Dashboard: Fallback auth successful');
+        } else {
+          console.error('✗ Dashboard: Fallback auth failed');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+      } catch (error) {
+        console.error('✗ Dashboard: Fallback auth error:', error);
       }
-    });
-    
-    if (response.ok) {
-      const user = await response.json();
-      const dashboardUsername = document.getElementById('dashboardUsername');
-      if (dashboardUsername) {
-        dashboardUsername.textContent = user.username;
-      }
-      
-      // Load user stats
-      loadUserStats(token);
-    } else {
-      localStorage.removeItem('token');
-      window.location.href = 'login.html';
     }
-  } catch (error) {
-    console.error('Error initializing dashboard:', error);
-  }
+  }, 2000);
 });
 
 // Load user statistics
@@ -72,3 +105,4 @@ async function loadUserStats(token) {
     console.error('Error loading stats:', error);
   }
 }
+

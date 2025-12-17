@@ -96,21 +96,30 @@ async function initializeNavUser() {
     if (!token) {
       // Only redirect to login if we're not already on login or signup page
       const currentPage = window.location.pathname.split('/').pop();
-      if (currentPage !== 'login.html' && currentPage !== 'signup.html' && currentPage !== 'index.html') {
-        window.location.href = 'login.html';
+      if (currentPage !== 'login.html' && currentPage !== 'signup.html' && currentPage !== 'index.html' && currentPage !== '') {
+        console.log('→ Common: No token found, redirecting to login');
+        window.location.href = '/login';
       }
       return;
     }
 
-    const response = await fetch('/auth/me', {
+    console.log('→ Common: Authenticating user...');
+    const response = await fetch('http://localhost:3000/auth/me', {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include'
     });
+
+    console.log('→ Common: Auth response status:', response.status);
 
     if (response.ok) {
       const user = await response.json();
+      console.log('✓ Common: User authenticated:', user.username);
       
+      // Update navbar
       const navUsername = document.getElementById('navUsername');
       if (navUsername) {
         navUsername.textContent = user.username;
@@ -127,15 +136,29 @@ async function initializeNavUser() {
           avatar.textContent = user.username.charAt(0).toUpperCase();
         }
       }
+      
+      // Dispatch event for page-specific handlers
+      window.dispatchEvent(new CustomEvent('userAuthenticated', { 
+        detail: user 
+      }));
+      
     } else {
+      console.error('✗ Common: Auth failed with status:', response.status);
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       const currentPage = window.location.pathname.split('/').pop();
-      if (currentPage !== 'login.html' && currentPage !== 'signup.html' && currentPage !== 'index.html') {
-        window.location.href = 'login.html';
+      if (currentPage !== 'login.html' && currentPage !== 'signup.html' && currentPage !== 'index.html' && currentPage !== '') {
+        console.log('→ Common: Invalid token, redirecting to login');
+        window.location.href = '/login';
       }
     }
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error('✗ Common: Error fetching user:', error);
+    console.error('Error details:', error.message);
+    // Don't redirect on network errors, but dispatch a failed event
+    window.dispatchEvent(new CustomEvent('userAuthFailed', { 
+      detail: error 
+    }));
   }
 }
 
@@ -143,7 +166,7 @@ async function initializeNavUser() {
 function logout() {
   if (confirm('Are you sure you want to logout?')) {
     localStorage.removeItem('token');
-    window.location.href = 'login.html';
+    window.location.href = '/login';
   }
 }
 
@@ -181,3 +204,4 @@ window.initializeTheme = initializeTheme;
 window.applyTheme = applyTheme;
 window.toggleTheme = toggleTheme;
 window.logout = logout;
+

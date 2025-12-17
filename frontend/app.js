@@ -7,12 +7,87 @@ function checkAuth() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   
   if (!token || !user) {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return null;
   }
   
   return { token, user };
 }
+
+// Handle card filtering based on URL hash
+function handleCardFiltering() {
+  const hash = window.location.hash.substring(1); // Remove the # symbol
+  const cards = document.querySelectorAll('.card[data-card]');
+  
+  // Update page title based on hash
+  const titles = {
+    'converter': 'Image Converter - Convert Between Formats | FileCompressor Pro',
+    'compressor': 'Image Compressor - Reduce File Size | FileCompressor Pro',
+    'restore': 'Image Restore - Enhance Quality | FileCompressor Pro',
+    'pdf': 'PDF Compressor - Reduce PDF Size | FileCompressor Pro'
+  };
+  
+  // Update hero section based on hash
+  const heroContent = {
+    'converter': {
+      title: 'Image Format Converter',
+      subtitle: 'Convert images between JPG, PNG, WebP, and AVIF formats'
+    },
+    'compressor': {
+      title: 'Image Compressor',
+      subtitle: 'Reduce image file sizes while maintaining quality'
+    },
+    'restore': {
+      title: 'Image Restore',
+      subtitle: 'Enhance and restore compressed images to better quality'
+    },
+    'pdf': {
+      title: 'PDF Compressor',
+      subtitle: 'Compress PDF documents and reduce file size'
+    }
+  };
+  
+  const heroTitle = document.getElementById('heroTitle');
+  const heroSubtitle = document.getElementById('heroSubtitle');
+  
+  if (hash && titles[hash]) {
+    document.title = titles[hash];
+    if (heroTitle && heroContent[hash]) {
+      heroTitle.textContent = heroContent[hash].title;
+      heroSubtitle.textContent = heroContent[hash].subtitle;
+    }
+  } else {
+    document.title = 'File Tools - FileCompressor Pro';
+    if (heroTitle) {
+      heroTitle.textContent = 'Compress & Convert Files';
+      heroSubtitle.textContent = 'Simple, fast, and professional file compression';
+    }
+  }
+  
+  if (hash && cards.length > 0) {
+    // Hide all cards
+    cards.forEach(card => {
+      card.style.display = 'none';
+    });
+    
+    // Show only the selected card
+    const selectedCard = document.getElementById(`card-${hash}`);
+    if (selectedCard) {
+      selectedCard.style.display = 'block';
+      // Scroll to the card
+      selectedCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } else {
+    // Show all cards if no hash
+    cards.forEach(card => {
+      card.style.display = 'block';
+    });
+  }
+}
+
+// Call on page load and hash change
+window.addEventListener('load', handleCardFiltering);
+window.addEventListener('hashchange', handleCardFiltering);
 
 // Initialize app
 const auth = checkAuth();
@@ -33,7 +108,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 });
 
 // Utility functions
@@ -105,7 +180,7 @@ class ImageConverter {
     const ext = file.name.split('.').pop().toLowerCase();
     this.fileFormat = ext === 'jpg' ? 'jpeg' : ext;
     
-    this.fileInfo.textContent = `📎 ${file.name} (${formatFileSize(file.size)})`;
+    this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
     this.fileInfo.classList.remove('hidden');
     
     this.formatInfo.textContent = `Current format: ${this.fileFormat.toUpperCase()}`;
@@ -189,7 +264,7 @@ class ImageConverter {
         this.progress.classList.add('hidden');
         this.result.classList.remove('hidden');
         this.convertBtn.disabled = false;
-        this.convertBtn.textContent = '🔄 Convert Format';
+        this.convertBtn.textContent = 'Convert Format';
         loadHistory();
       }, 500);
       
@@ -197,7 +272,7 @@ class ImageConverter {
       console.error('Conversion error:', error);
       alert('Error: ' + error.message);
       this.convertBtn.disabled = false;
-      this.convertBtn.textContent = '🔄 Convert Format';
+      this.convertBtn.textContent = 'Convert Format';
       this.progress.classList.add('hidden');
     }
   }
@@ -261,7 +336,7 @@ class ImageCompressor {
   
   handleFile(file) {
     this.file = file;
-    this.fileInfo.textContent = `📎 ${file.name} (${formatFileSize(file.size)})`;
+    this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
     this.fileInfo.classList.remove('hidden');
     this.compressBtn.disabled = false;
     this.result.classList.add('hidden');
@@ -331,7 +406,7 @@ class ImageCompressor {
         document.getElementById('imageEstimate').classList.add('hidden');
         document.getElementById('imageResult').classList.remove('hidden');
         this.compressBtn.disabled = false;
-        this.compressBtn.textContent = '📦 Compress Image';
+        this.compressBtn.textContent = 'Compress Image';
         loadHistory();
       }, 500);
       
@@ -339,7 +414,7 @@ class ImageCompressor {
       console.error('Compression error:', error);
       alert('Error: ' + error.message);
       this.compressBtn.disabled = false;
-      this.compressBtn.textContent = '📦 Compress Image';
+      this.compressBtn.textContent = 'Compress Image';
       this.progress.classList.add('hidden');
       document.getElementById('imageEstimate').classList.add('hidden');
     }
@@ -404,7 +479,7 @@ class ImageRestorer {
   
   handleFile(file) {
     this.file = file;
-    this.fileInfo.textContent = `📎 ${file.name} (${formatFileSize(file.size)})`;
+    this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
     this.fileInfo.classList.remove('hidden');
     this.restoreBtn.disabled = false;
     this.result.classList.add('hidden');
@@ -456,7 +531,7 @@ class ImageRestorer {
         this.progress.classList.add('hidden');
         this.result.classList.remove('hidden');
         this.restoreBtn.disabled = false;
-        this.restoreBtn.textContent = '✨ Restore Quality';
+        this.restoreBtn.textContent = 'Restore Quality';
         loadHistory();
       }, 500);
       
@@ -464,7 +539,7 @@ class ImageRestorer {
       console.error('Restoration error:', error);
       alert('Error: ' + error.message);
       this.restoreBtn.disabled = false;
-      this.restoreBtn.textContent = '✨ Restore Quality';
+      this.restoreBtn.textContent = 'Restore Quality';
       this.progress.classList.add('hidden');
     }
   }
@@ -528,7 +603,7 @@ class PdfCompressor {
   
   handleFile(file) {
     this.file = file;
-    this.fileInfo.textContent = `📎 ${file.name} (${formatFileSize(file.size)})`;
+    this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
     this.fileInfo.classList.remove('hidden');
     this.compressBtn.disabled = false;
     this.result.classList.add('hidden');
@@ -581,7 +656,7 @@ class PdfCompressor {
         this.progress.classList.add('hidden');
         this.result.classList.remove('hidden');
         this.compressBtn.disabled = false;
-        this.compressBtn.textContent = '📦 Compress PDF';
+        this.compressBtn.textContent = 'Compress PDF';
         loadHistory();
       }, 500);
       
@@ -589,7 +664,7 @@ class PdfCompressor {
       console.error('Compression error:', error);
       alert('Error: ' + error.message);
       this.compressBtn.disabled = false;
-      this.compressBtn.textContent = '📦 Compress PDF';
+      this.compressBtn.textContent = 'Compress PDF';
       this.progress.classList.add('hidden');
     }
   }
@@ -635,7 +710,7 @@ async function loadHistory() {
     historyList.innerHTML = jobs.map(job => `
       <div class="history-item">
         <div class="history-info">
-          <div class="history-name">${job.type === 'image' ? '🖼️' : '📄'} ${job.inputName}</div>
+          <div class="history-name">${job.inputName}</div>
           <div class="history-meta">
             ${formatFileSize(job.originalSize || 0)} → ${formatFileSize(job.compressedSize || 0)} • 
             ${new Date(job.createdAt).toLocaleDateString()}
@@ -655,3 +730,4 @@ async function loadHistory() {
 
 // Load history on page load
 loadHistory();
+

@@ -1,7 +1,7 @@
 // Admin Dashboard JavaScript
 const token = localStorage.getItem('token');
 if (!token) {
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 }
 
 let socket;
@@ -22,12 +22,12 @@ function initializeSocket() {
   });
 
   socket.on('file_uploaded', (data) => {
-    addActivityLog(`📤 ${data.username} uploaded a file`, 'upload', data);
+    addActivityLog(`${data.username} uploaded a file`, 'upload', data);
     loadDashboardStats();
   });
 
   socket.on('file_processed', (data) => {
-    addActivityLog(`✅ ${data.username} processed ${data.fileName}`, 'process', data);
+    addActivityLog(`${data.username} processed ${data.fileName}`, 'process', data);
     loadDashboardStats();
   });
 
@@ -108,14 +108,14 @@ function displayUsers(usersToDisplay) {
       <td>${user.filesProcessed || 0}</td>
       <td>
         <span class="status-badge ${user.active ? 'active' : 'inactive'}">
-          ${user.active ? '🟢 Active' : '⚫ Inactive'}
+          ${user.active ? 'Active' : 'Inactive'}
         </span>
       </td>
       <td>
         <div class="action-icons">
-          <button class="icon-btn" title="View Details" onclick="viewUserDetails('${user._id}')">👁️</button>
-          <button class="icon-btn" title="Edit" onclick="editUser('${user._id}')">✏️</button>
-          <button class="icon-btn danger" title="Ban User" onclick="banUser('${user._id}')">🚫</button>
+          <button class="icon-btn" title="View Details" onclick="viewUserDetails('${user._id}')">View</button>
+          <button class="icon-btn" title="Edit" onclick="editUser('${user._id}')">Edit</button>
+          <button class="icon-btn danger" title="Ban User" onclick="banUser('${user._id}')">Ban</button>
         </div>
       </td>
     </tr>
@@ -224,7 +224,7 @@ function escapeHtml(text) {
 // Logout
 document.getElementById('logoutBtn')?.addEventListener('click', () => {
   localStorage.removeItem('token');
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 });
 
 // Profile dropdown toggle
@@ -257,3 +257,4 @@ window.addEventListener('load', () => {
   // Refresh stats every 30 seconds
   setInterval(loadDashboardStats, 30000);
 });
+

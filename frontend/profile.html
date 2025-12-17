@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Profile - FileCompressor Pro</title>
+  <title>My Profile - Account Settings & Information | FileCompressor Pro</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,12 +11,12 @@
   <nav class="navbar">
     <div class="navbar-content">
       <div class="navbar-left">
-        <a href="dashboard.html" class="logo">📦 FileCompressor Pro</a>
+        <a href="/dashboard" class="logo">FileCompressor Pro</a>
       </div>
       <div class="navbar-center">
-        <a href="dashboard.html" class="nav-link">Dashboard</a>
-        <a href="history.html" class="nav-link">History</a>
-        <a href="pricing.html" class="nav-link">Pricing</a>
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+        <a href="/history" class="nav-link">History</a>
+        <a href="/pricing" class="nav-link">Pricing</a>
       </div>
       <div class="navbar-right">
         <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle theme">
@@ -36,13 +36,13 @@
             </svg>
           </button>
           <div class="dropdown-menu" id="profileMenu">
-            <a href="profile.html" class="dropdown-item">
+            <a href="/profile" class="dropdown-item">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
               </svg>
               My Profile
             </a>
-            <a href="settings.html" class="dropdown-item">
+            <a href="/settings" class="dropdown-item">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 2a5 5 0 100 10A5 5 0 008 3zm0 1.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7z"/>
               </svg>
@@ -86,7 +86,7 @@
               <label>Username</label>
               <div class="info-display">
                 <span id="displayUsername">Loading...</span>
-                <button class="edit-btn" onclick="editField('username')">✏️ Edit</button>
+                <button class="edit-btn" onclick="editField('username')">Edit</button>
               </div>
               <div class="info-edit hidden" id="editUsername">
                 <input type="text" id="inputUsername" class="profile-input" aria-label="Edit username">
@@ -101,7 +101,7 @@
               <label>Email</label>
               <div class="info-display">
                 <span id="displayEmail">Loading...</span>
-                <button class="edit-btn" onclick="editField('email')">✏️ Edit</button>
+                <button class="edit-btn" onclick="editField('email')">Edit</button>
               </div>
               <div class="info-edit hidden" id="editEmail">
                 <input type="email" id="inputEmail" class="profile-input" aria-label="Edit email address">
@@ -150,18 +150,21 @@
           
           <div class="security-section">
             <h4>Change Password</h4>
-            <form id="changePasswordForm" class="password-form">
+            <form id="changePasswordForm" class="password-form" novalidate>
               <div class="form-group">
                 <label>Current Password</label>
-                <input type="password" id="currentPassword" class="profile-input" required aria-label="Current password">
+                <input type="password" id="currentPassword" class="profile-input form-control" required aria-label="Current password">
+                <div class="invalid-feedback">Please enter your current password.</div>
               </div>
               <div class="form-group">
                 <label>New Password</label>
-                <input type="password" id="newPassword" class="profile-input" minlength="6" required aria-label="New password">
+                <input type="password" id="newPassword" class="profile-input form-control" minlength="6" required aria-label="New password">
+                <div class="invalid-feedback">Password must be at least 6 characters.</div>
               </div>
               <div class="form-group">
                 <label>Confirm New Password</label>
-                <input type="password" id="confirmPassword" class="profile-input" minlength="6" required aria-label="Confirm new password">
+                <input type="password" id="confirmPassword" class="profile-input form-control" minlength="6" required aria-label="Confirm new password">
+                <div class="invalid-feedback">Please confirm your new password.</div>
               </div>
               <div id="passwordMessage" class="message hidden"></div>
               <button type="submit" class="btn btn-primary">Update Password</button>
@@ -171,16 +174,16 @@
 
         <!-- Usage Statistics -->
         <div class="profile-card">
-          <h3>📊 Usage Statistics</h3>
+          <h3>Usage Statistics</h3>
           
           <div class="stats-grid-small">
             <div class="stat-box">
-              <div class="stat-icon">📁</div>
+              <div class="stat-icon">Files</div>
               <div class="stat-value" id="totalFilesProcessed">0</div>
               <div class="stat-label">Files Processed</div>
             </div>
             <div class="stat-box">
-              <div class="stat-icon">💾</div>
+              <div class="stat-icon">Storage</div>
               <div class="stat-value" id="totalSpaceSaved">0 MB</div>
               <div class="stat-label">Space Saved</div>
             </div>
@@ -214,15 +217,15 @@
   <footer class="footer">
     <div class="footer-content">
       <div class="footer-section">
-        <h4>📦 FileCompressor Pro</h4>
+        <h4>FileCompressor Pro</h4>
         <p>Professional file compression and conversion platform</p>
       </div>
       <div class="footer-section">
         <h4>Services</h4>
         <a href="converter.html">Image Converter</a>
-        <a href="compressor.html">Image Compressor</a>
-        <a href="restore.html">Image Restore</a>
-        <a href="pdf.html">PDF Compressor</a>
+        <a href="index.html">Image Compressor</a>
+        <a href="index.html">Image Restore</a>
+        <a href="index.html">PDF Compressor</a>
       </div>
       <div class="footer-section">
         <h4>Support</h4>
@@ -247,3 +250,4 @@
   <script src="profile.js"></script>
 </body>
 </html>
+

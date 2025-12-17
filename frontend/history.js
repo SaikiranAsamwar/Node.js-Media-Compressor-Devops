@@ -7,7 +7,7 @@ function checkAuth() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   
   if (!token || !user) {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return null;
   }
   
@@ -48,7 +48,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 });
 
 // Utility functions
@@ -67,13 +67,13 @@ function formatDate(dateString) {
 
 function getTypeIcon(type) {
   const icons = {
-    'image-convert': '🔄',
-    'image-compress': '📦',
-    'image-restore': '✨',
-    'pdf': '📄',
-    'image': '🖼️'
+    'image-convert': 'IC',
+    'image-compress': 'COM',
+    'image-restore': 'RES',
+    'pdf': 'PDF',
+    'image': 'IMG'
   };
-  return icons[type] || '📁';
+  return icons[type] || 'FILE';
 }
 
 function getTypeName(type) {
@@ -158,7 +158,7 @@ function displayJobs(jobs) {
       </div>
       <div class="history-actions">
         <a href="${API_URL}${job.outputPath}" download="${job.outputName}" class="btn btn-sm btn-success">
-          ⬇️ Download
+          Download
         </a>
       </div>
     </div>
@@ -185,3 +185,4 @@ document.getElementById('searchHistory').addEventListener('input', (e) => {
 
 // Load on page load
 loadHistory();
+

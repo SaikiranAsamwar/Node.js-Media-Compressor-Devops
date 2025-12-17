@@ -7,7 +7,7 @@ function checkAuth() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   
   if (!token || !user) {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return null;
   }
   
@@ -48,5 +48,6 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 });
+

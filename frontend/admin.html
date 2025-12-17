@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - FileCompressor Pro</title>
+  <title>Admin Panel - User Management & System Stats | FileCompressor Pro</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,11 +11,11 @@
   <nav class="navbar">
     <div class="navbar-content">
       <div class="navbar-left">
-        <a href="dashboard.html" class="logo">📦 FileCompressor Pro</a>
-        <span class="admin-badge">👑 ADMIN</span>
+        <a href="/dashboard" class="logo">FileCompressor Pro</a>
+        <span class="admin-badge">ADMIN</span>
       </div>
       <div class="navbar-center">
-        <a href="admin.html" class="nav-link active">Dashboard</a>
+        <a href="/admin" class="nav-link active">Dashboard</a>
         <a href="users.html" class="nav-link">Users</a>
         <a href="activity.html" class="nav-link">Activity</a>
       </div>
@@ -37,7 +37,7 @@
             </svg>
           </button>
           <div class="dropdown-menu" id="profileMenu">
-            <a href="profile.html" class="dropdown-item">My Profile</a>
+            <a href="/profile" class="dropdown-item">My Profile</a>
             <div class="dropdown-divider"></div>
             <button class="dropdown-item" id="logoutBtn">Logout</button>
           </div>
@@ -51,14 +51,14 @@
     <div class="admin-container">
       <!-- Page Header -->
       <div class="admin-header">
-        <h1>📊 Admin Dashboard</h1>
+        <h1>Admin Dashboard</h1>
         <p>System overview and real-time monitoring</p>
       </div>
 
       <!-- System Stats Grid -->
       <div class="stats-grid-admin">
         <div class="stat-card-admin">
-          <div class="stat-icon-admin">👥</div>
+          <div class="stat-icon-admin">Users</div>
           <div class="stat-content">
             <div class="stat-label-admin">Total Users</div>
             <div class="stat-value-admin" id="totalUsers">0</div>
@@ -67,7 +67,7 @@
         </div>
 
         <div class="stat-card-admin">
-          <div class="stat-icon-admin">📁</div>
+          <div class="stat-icon-admin">Files</div>
           <div class="stat-content">
             <div class="stat-label-admin">Files Processed</div>
             <div class="stat-value-admin" id="totalFilesProcessed">0</div>
@@ -76,7 +76,7 @@
         </div>
 
         <div class="stat-card-admin">
-          <div class="stat-icon-admin">💾</div>
+          <div class="stat-icon-admin">Storage</div>
           <div class="stat-content">
             <div class="stat-label-admin">Storage Used</div>
             <div class="stat-value-admin" id="totalStorageUsed">0 MB</div>
@@ -85,7 +85,7 @@
         </div>
 
         <div class="stat-card-admin">
-          <div class="stat-icon-admin">⚡</div>
+          <div class="stat-icon-admin">Activity</div>
           <div class="stat-content">
             <div class="stat-label-admin">Avg Processing Time</div>
             <div class="stat-value-admin" id="avgProcessingTime">0.5s</div>
@@ -98,7 +98,7 @@
         <!-- User Management Section -->
         <div class="admin-card full-width">
           <div class="card-header">
-            <h2>👥 User Management</h2>
+            <h2>User Management</h2>
             <div class="card-actions">
               <input type="text" id="userSearch" placeholder="Search users..." class="search-input">
               <select id="roleFilter" class="filter-select" aria-label="Filter users by role">
@@ -133,7 +133,7 @@
         <!-- Real-time Activity Feed -->
         <div class="admin-card full-width">
           <div class="card-header">
-            <h2>🔔 Real-time Activity Feed</h2>
+            <h2>Real-time Activity Feed</h2>
             <button class="btn btn-sm btn-outline" id="clearActivityBtn">Clear Feed</button>
           </div>
           <div class="activity-feed" id="activityFeed">
@@ -145,7 +145,7 @@
 
         <!-- Server Health -->
         <div class="admin-card">
-          <h3>🏥 Server Health</h3>
+          <h3>Server Health</h3>
           <div class="health-item">
             <span>Database Connection</span>
             <div class="health-indicator connected" id="dbHealth"></div>
@@ -166,7 +166,7 @@
 
         <!-- Quick Actions -->
         <div class="admin-card">
-          <h3>⚙️ Quick Actions</h3>
+          <h3>Quick Actions</h3>
           <div class="action-buttons">
             <button class="btn btn-sm btn-primary" onclick="clearSystemCache()">Clear Cache</button>
             <button class="btn btn-sm btn-outline" onclick="exportData()">Export Data</button>
@@ -182,12 +182,12 @@
   <footer class="footer">
     <div class="footer-content">
       <div class="footer-section">
-        <h4>📦 FileCompressor Pro</h4>
+        <h4>FileCompressor Pro</h4>
         <p>Professional file compression platform</p>
       </div>
       <div class="footer-section">
         <h4>Admin</h4>
-        <a href="admin.html">Dashboard</a>
+        <a href="/admin">Dashboard</a>
         <a href="users.html">Users</a>
         <a href="activity.html">Activity</a>
       </div>
@@ -213,3 +213,4 @@
   <script src="admin.js"></script>
 </body>
 </html>
+

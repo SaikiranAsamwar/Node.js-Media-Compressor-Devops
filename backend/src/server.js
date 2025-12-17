@@ -17,7 +17,7 @@ const app = express();
 
 // CORS configuration
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:8080', 'http://127.0.0.1:8080'],
   credentials: true
 }));
 
@@ -64,6 +64,23 @@ app.get('/metrics', async (req, res) => {
   res.end(await metrics.register.metrics());
 });
 
+// Clean URL routing - remove .html extension
+const pages = ['dashboard', 'converter', 'history', 'pricing', 'profile', 'settings', 'admin', 'login', 'signup'];
+pages.forEach(page => {
+  app.get(`/${page}`, (req, res) => {
+    res.sendFile(path.join(__dirname, '../../frontend', `${page}.html`));
+  });
+});
+
+// Catch-all route for SPA - serve index.html for any other route
+app.get('*', (req, res) => {
+  // Don't serve index.html for API routes or file extensions
+  if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.includes('.')) {
+    return res.status(404).send('Not found');
+  }
+  res.sendFile(path.join(__dirname, '../../frontend', 'index.html'));
+});
+
 // MongoDB connection with better error handling
 const MONGO = process.env.MONGO_URI || 'mongodb://localhost:27017/filetool';
 mongoose.connect(MONGO, {
@@ -83,7 +100,7 @@ const server = app.listen(PORT, () => {
 // Socket.io for real-time features
 const io = socketIo(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:8080', 'http://127.0.0.1:8080'],
     credentials: true
   }
 });

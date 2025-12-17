@@ -7,7 +7,7 @@ function checkAuth() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   
   if (!token || !user) {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
     return null;
   }
   
@@ -48,7 +48,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 });
 
 // Utility functions
@@ -113,7 +113,7 @@ class ImageConverter {
     const ext = file.name.split('.').pop().toLowerCase();
     this.fileFormat = ext === 'jpg' ? 'jpeg' : ext;
     
-    this.fileInfo.textContent = `📎 ${file.name} (${formatFileSize(file.size)})`;
+    this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
     this.fileInfo.classList.remove('hidden');
     
     this.formatInfo.textContent = `Current format: ${this.fileFormat.toUpperCase()}`;
@@ -195,14 +195,14 @@ class ImageConverter {
         this.progress.classList.add('hidden');
         this.result.classList.remove('hidden');
         this.convertBtn.disabled = false;
-        this.convertBtn.textContent = '🔄 Convert Format';
+        this.convertBtn.textContent = 'Convert Format';
       }, 500);
       
     } catch (error) {
       console.error('Conversion error:', error);
       alert('Error: ' + error.message);
       this.convertBtn.disabled = false;
-      this.convertBtn.textContent = '🔄 Convert Format';
+      this.convertBtn.textContent = 'Convert Format';
       this.progress.classList.add('hidden');
     }
   }
@@ -220,3 +220,4 @@ class ImageConverter {
 
 // Initialize converter
 const converter = new ImageConverter();
+

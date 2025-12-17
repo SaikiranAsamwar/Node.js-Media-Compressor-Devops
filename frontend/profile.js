@@ -1,49 +1,52 @@
+// API URL
+const API_URL = 'http://localhost:3000';
+
 // Check authentication
 const token = localStorage.getItem('token');
 if (!token) {
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 }
 
 let userData = null;
 
-// Profile dropdown toggle
-const profileBtn = document.getElementById('profileBtn');
-const profileMenu = document.getElementById('profileMenu');
-
-profileBtn?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  profileMenu.classList.toggle('show');
+// Wait for authentication from common.js
+window.addEventListener('userAuthenticated', (event) => {
+  userData = event.detail;
+  updateProfileUI();
 });
 
-document.addEventListener('click', () => {
-  profileMenu?.classList.remove('show');
-});
-
-// Load user data
+// Load user data (fallback if event hasn't fired yet)
 async function loadUserData() {
   try {
-    const response = await fetch('/auth/me', {
+    const response = await fetch(`${API_URL}/auth/me`, {
       headers: {
         'Authorization': `Bearer ${token}`
-      }
+      },
+      credentials: 'include'
     });
 
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('token');
-        window.location.href = 'login.html';
+        window.location.href = '/login';
         return;
       }
       throw new Error('Failed to load user data');
     }
 
     userData = await response.json();
-    displayUserData(userData);
-    await loadStatistics();
+    updateProfileUI();
   } catch (error) {
     console.error('Error loading user data:', error);
     showMessage('error', 'Failed to load user data');
   }
+}
+
+// Update profile UI with user data
+function updateProfileUI() {
+  if (!userData) return;
+  displayUserData(userData);
+  loadStatistics();
 }
 
 // Display user data
@@ -276,6 +279,15 @@ document.getElementById('photoInput')?.addEventListener('change', async (e) => {
 // Change password
 document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
+  
+  const form = e.target;
+  
+  // Bootstrap validation
+  if (!form.checkValidity()) {
+    e.stopPropagation();
+    form.classList.add('was-validated');
+    return;
+  }
 
   const currentPassword = document.getElementById('currentPassword').value;
   const newPassword = document.getElementById('newPassword').value;
@@ -284,13 +296,11 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
   // Validate passwords match
   if (newPassword !== confirmPassword) {
     showPasswordMessage('error', 'New passwords do not match');
+    document.getElementById('confirmPassword').setCustomValidity('Passwords do not match');
+    form.classList.add('was-validated');
     return;
-  }
-
-  // Validate password length
-  if (newPassword.length < 6) {
-    showPasswordMessage('error', 'Password must be at least 6 characters long');
-    return;
+  } else {
+    document.getElementById('confirmPassword').setCustomValidity('');
   }
 
   try {
@@ -394,7 +404,7 @@ window.deleteAccount = async function() {
 
     localStorage.removeItem('token');
     alert('Your account has been deleted successfully');
-    window.location.href = 'login.html';
+    window.location.href = '/login';
   } catch (error) {
     console.error('Error deleting account:', error);
     showMessage('error', 'Failed to delete account');
@@ -439,8 +449,9 @@ function showPasswordMessage(type, message) {
 // Logout
 document.getElementById('logoutBtn')?.addEventListener('click', () => {
   localStorage.removeItem('token');
-  window.location.href = 'login.html';
+  window.location.href = '/login';
 });
 
 // Initialize
 loadUserData();
+

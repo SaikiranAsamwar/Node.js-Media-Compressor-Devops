@@ -3,37 +3,80 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FileCompressor Pro</title>
+  <title>File Tools - FileCompressor Pro</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Header -->
-  <header class="header">
-    <div class="header-content">
-      <div class="logo">📦 FileCompressor</div>
-      <nav class="nav-links">
-        <span class="username" id="username">User</span>
-        <button class="btn btn-sm btn-danger" id="logoutBtn">Logout</button>
-      </nav>
+  <!-- Professional Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <div class="navbar-left">
+        <a href="/dashboard" class="logo">FileCompressor Pro</a>
+      </div>
+      <div class="navbar-center">
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+        <a href="/history" class="nav-link">History</a>
+        <a href="/pricing" class="nav-link">Pricing</a>
+      </div>
+      <div class="navbar-right">
+        <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle theme">
+          <svg class="theme-icon sun-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 3a1 1 0 011 1v1a1 1 0 11-2 0V4a1 1 0 011-1zm0 10a3 3 0 100-6 3 3 0 000 6zm0 2a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM4 10a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm10 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1zM6.343 6.343a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zm5.657 5.657a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zM6.343 13.657a1 1 0 010-1.414l.707-.707a1 1 0 111.414 1.414l-.707.707a1 1 0 01-1.414 0zm5.657-5.657a1 1 0 010-1.414l.707-.707a1 1 0 111.414 1.414l-.707.707a1 1 0 01-1.414 0z"/>
+          </svg>
+          <svg class="theme-icon moon-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+          </svg>
+        </button>
+        <div class="profile-dropdown">
+          <button class="profile-btn" id="profileBtn">
+            <div class="avatar" id="userAvatar">U</div>
+            <span id="navUsername">User</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+              <path d="M6 9L1 4h10z"/>
+            </svg>
+          </button>
+          <div class="dropdown-menu" id="profileMenu">
+            <a href="/profile" class="dropdown-item">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+              My Profile
+            </a>
+            <a href="/settings" class="dropdown-item">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1a7 7 0 110 14A7 7 0 018 1zm0 2a5 5 0 100 10A5 5 0 008 3zm0 1.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7z"/>
+              </svg>
+              Settings
+            </a>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item" id="logoutBtn">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M6 13V3h1v10H6zm3-10l5 5-5 5V8H3V6h6V3z"/>
+              </svg>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-  </header>
+  </nav>
 
   <!-- Main Content -->
   <main class="main-content">
     <div class="container">
       <div class="hero">
-        <h1>Compress & Convert Files</h1>
-        <p>Simple, fast, and professional file compression</p>
+        <h1 id="heroTitle">Compress & Convert Files</h1>
+        <p id="heroSubtitle">Simple, fast, and professional file compression</p>
       </div>
 
       <!-- Upload Cards -->
       <div class="cards-grid">
         <!-- Image Converter Card -->
-        <div class="card">
-          <h2>🔄 Image Converter</h2>
+        <div class="card" id="card-converter" data-card="converter">
+          <h2>Image Converter</h2>
           
           <div class="upload-zone" id="convertDropZone">
-            <div class="upload-icon">📤</div>
+            <div class="upload-icon">+</div>
             <p>Drop image to convert format</p>
             <small>JPG, PNG, WebP, AVIF (Max 50MB)</small>
             <input type="file" id="convertInput" accept="image/*" aria-label="Upload image to convert format">
@@ -62,21 +105,21 @@
               <div class="stat savings"><strong>Format:</strong> <span id="convertNewFormat">-</span></div>
             </div>
             <button class="btn btn-success btn-block" id="convertDownloadBtn">
-              ⬇️ Download File
+              Download File
             </button>
           </div>
           
           <button class="btn btn-primary btn-block" id="convertBtn" disabled>
-            🔄 Convert Format
+            Convert Format
           </button>
         </div>
 
         <!-- Image Compressor Card -->
-        <div class="card">
-          <h2>📦 Image Compressor</h2>
+        <div class="card" id="card-compressor" data-card="compressor">
+          <h2>Image Compressor</h2>
           
           <div class="upload-zone" id="imageDropZone">
-            <div class="upload-icon">📤</div>
+            <div class="upload-icon">+</div>
             <p>Drop image to compress</p>
             <small>JPG, PNG, WebP, AVIF (Max 50MB)</small>
             <input type="file" id="imageInput" accept="image/*" aria-label="Upload image to compress">
@@ -102,7 +145,7 @@
           
           <div id="imageEstimate" class="estimate-info hidden">
             <div class="estimate-badge">
-              <strong>📊 Estimated:</strong> <span id="imageEstimatedSize">-</span> 
+              <strong>Estimated:</strong> <span id="imageEstimatedSize">-</span> 
               (<span id="imageEstimatedReduction">-</span>% reduction)
             </div>
           </div>
@@ -115,21 +158,21 @@
               <div class="stat accuracy"><strong>Accuracy:</strong> <span id="imageAccuracy">-</span>%</div>
             </div>
             <button class="btn btn-success btn-block" id="imageDownloadBtn">
-              ⬇️ Download File
+              Download File
             </button>
           </div>
           
           <button class="btn btn-primary btn-block" id="imageCompressBtn" disabled>
-            📦 Compress Image
+            Compress Image
           </button>
         </div>
 
         <!-- Image Restore Card -->
-        <div class="card">
-          <h2>✨ Image Restore</h2>
+        <div class="card" id="card-restore" data-card="restore">
+          <h2>Image Restore</h2>
           
           <div class="upload-zone" id="restoreDropZone">
-            <div class="upload-icon">📤</div>
+            <div class="upload-icon">+</div>
             <p>Drop compressed image to restore</p>
             <small>JPG, PNG, WebP, AVIF (Max 50MB)</small>
             <input type="file" id="restoreInput" accept="image/*" aria-label="Upload compressed image to restore">
@@ -159,21 +202,21 @@
               <div class="stat restored"><strong>Status:</strong> Quality Enhanced</div>
             </div>
             <button class="btn btn-success btn-block" id="restoreDownloadBtn">
-              ⬇️ Download File
+              Download File
             </button>
           </div>
           
           <button class="btn btn-primary btn-block" id="restoreBtn" disabled>
-            ✨ Restore Quality
+            Restore Quality
           </button>
         </div>
 
         <!-- PDF Card -->
-        <div class="card">
-          <h2>📄 PDF Compressor</h2>
+        <div class="card" id="card-pdf" data-card="pdf">
+          <h2>PDF Compressor</h2>
           
           <div class="upload-zone" id="pdfDropZone">
-            <div class="upload-icon">📤</div>
+            <div class="upload-icon">+</div>
             <p>Drop PDF or click to browse</p>
             <small>PDF files only (Max 50MB)</small>
             <input type="file" id="pdfInput" accept=".pdf,application/pdf" aria-label="Upload PDF file to compress">
@@ -204,19 +247,19 @@
               <div class="stat savings"><strong>Saved:</strong> <span id="pdfSavings">-</span></div>
             </div>
             <button class="btn btn-success btn-block" id="pdfDownloadBtn">
-              ⬇️ Download File
+              Download File
             </button>
           </div>
           
           <button class="btn btn-primary btn-block" id="pdfCompressBtn" disabled>
-            📦 Compress PDF
+            Compress PDF
           </button>
         </div>
       </div>
 
       <!-- History Section -->
       <div class="history-section">
-        <h3>📋 Recent Files</h3>
+        <h3>Recent Files</h3>
         <div id="historyList" class="history-list">
           <div class="loading"><div class="spinner"></div></div>
         </div>
@@ -224,6 +267,8 @@
     </div>
   </main>
 
+  <script src="common.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
+

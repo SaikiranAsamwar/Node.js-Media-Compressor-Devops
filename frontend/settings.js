@@ -1,48 +1,22 @@
 // Theme Management
+const API_URL = 'http://localhost:3000';
 let currentTheme = localStorage.getItem('theme') || 'auto';
 
 // Initialize theme on page load
 document.addEventListener('DOMContentLoaded', () => {
-  initializeUser();
+  // Check token first
+  const token = localStorage.getItem('token');
+  if (!token) {
+    window.location.href = '/login';
+    return;
+  }
+  
   initializeTheme();
   initializeSettings();
   setupEventListeners();
 });
 
-// Initialize user data
-async function initializeUser() {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = 'login.html';
-      return;
-    }
-
-    const response = await fetch('/auth/me', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (response.ok) {
-      const user = await response.json();
-      document.getElementById('navUsername').textContent = user.username;
-      
-      const avatar = document.getElementById('userAvatar');
-      if (user.profilePicture) {
-        avatar.style.backgroundImage = `url(${user.profilePicture})`;
-        avatar.textContent = '';
-      } else {
-        avatar.textContent = user.username.charAt(0).toUpperCase();
-      }
-    } else {
-      localStorage.removeItem('token');
-      window.location.href = 'login.html';
-    }
-  } catch (error) {
-    console.error('Error fetching user:', error);
-  }
-}
+// User auth is handled by common.js, no need to duplicate
 
 // Initialize theme
 function initializeTheme() {
@@ -163,7 +137,7 @@ async function saveSettings() {
 
     // Save to backend
     const token = localStorage.getItem('token');
-    const response = await fetch('/api/user/settings', {
+    const response = await fetch(`${API_URL}/api/user/settings`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -211,7 +185,7 @@ async function clearAllHistory() {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch('/api/history', {
+    const response = await fetch(`${API_URL}/api/history`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -239,7 +213,7 @@ async function deleteAccount() {
 
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch('/api/user/account', {
+    const response = await fetch(`${API_URL}/api/user/account`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -250,7 +224,7 @@ async function deleteAccount() {
       localStorage.clear();
       showNotification('Account deleted successfully', 'success');
       setTimeout(() => {
-        window.location.href = 'login.html';
+        window.location.href = '/login';
       }, 2000);
     } else {
       throw new Error('Failed to delete account');
@@ -265,7 +239,7 @@ async function deleteAccount() {
 async function exportData() {
   try {
     const token = localStorage.getItem('token');
-    const response = await fetch('/api/user/export', {
+    const response = await fetch(`${API_URL}/api/user/export`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -297,7 +271,7 @@ function logout() {
   localStorage.removeItem('token');
   showNotification('Logged out successfully', 'success');
   setTimeout(() => {
-    window.location.href = 'login.html';
+    window.location.href = '/login';
   }, 1000);
 }
 
@@ -327,3 +301,4 @@ function showNotification(message, type = 'info') {
     setTimeout(() => notification.remove(), 300);
   }, 3000);
 }
+

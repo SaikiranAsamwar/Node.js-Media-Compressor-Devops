@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign Up - FileCompressor Pro</title>
+  <title>Create Your Account - Get Started Free | FileCompressor Pro</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -14,20 +14,23 @@
       <div id="errorMessage" class="error-message hidden"></div>
       <div id="successMessage" class="success-message hidden"></div>
       
-      <form id="signupForm">
+      <form id="signupForm" novalidate>
         <div class="form-group">
           <label for="username">Username</label>
-          <input type="text" id="username" name="username" required minlength="3" placeholder="johndoe">
+          <input type="text" id="username" name="username" class="form-control" required minlength="3" placeholder="johndoe">
+          <div class="invalid-feedback">Username must be at least 3 characters.</div>
         </div>
         
         <div class="form-group">
           <label for="email">Email Address</label>
-          <input type="email" id="email" name="email" required placeholder="you@example.com">
+          <input type="email" id="email" name="email" class="form-control" required placeholder="you@example.com">
+          <div class="invalid-feedback">Please enter a valid email address.</div>
         </div>
         
         <div class="form-group">
           <label for="password">Password</label>
-          <input type="password" id="password" name="password" required minlength="6" placeholder="••••••••">
+          <input type="password" id="password" name="password" class="form-control" required minlength="6" placeholder="••••••••">
+          <div class="invalid-feedback">Password must be at least 6 characters.</div>
         </div>
         
         <button type="submit" class="btn btn-primary btn-block">
@@ -37,7 +40,7 @@
       </form>
       
       <div class="auth-switch">
-        Already have an account? <a href="login.html">Login here</a>
+        Already have an account? <a href="/login">Login here</a>
       </div>
     </div>
   </div>
@@ -45,3 +48,4 @@
   <script src="auth.js"></script>
 </body>
 </html>
+
