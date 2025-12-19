@@ -29,4 +29,4 @@ COPY --from=builder /app ./
 EXPOSE 3000
 
 # Start backend server
-CMD ["node", "index.js"]
+CMD ["node", "src/server.js"]
