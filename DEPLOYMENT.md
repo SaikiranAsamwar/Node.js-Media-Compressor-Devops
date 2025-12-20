@@ -1,10 +1,3 @@
-Om namoh bhagwate vasudevay namah 🕉
-
-Below is the **fully rewritten, clean, and embedded `README.md`**, with **deep Jenkins + Monitoring configuration**, **Amazon Linux–only commands**, **clear tool integration**, and a **proper author section at the end**.
-This version is **production-grade**, **YAML-safe**, **GitHub-ready**, and **interview-ready**.
-
-You can **directly replace your existing README.md with this**.
-
 ---
 
 # 🚀 Compressorr – Production Deployment Guide (Amazon Linux + AWS DevOps)
