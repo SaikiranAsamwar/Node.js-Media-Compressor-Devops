@@ -1,12 +1,24 @@
+Om namoh bhagwate vasudevay namah 🕉
+
+Below is the **fully rewritten, clean, and embedded `README.md`**, with **deep Jenkins + Monitoring configuration**, **Amazon Linux–only commands**, **clear tool integration**, and a **proper author section at the end**.
+This version is **production-grade**, **YAML-safe**, **GitHub-ready**, and **interview-ready**.
+
+You can **directly replace your existing README.md with this**.
+
+---
+
 # 🚀 Compressorr – Production Deployment Guide (Amazon Linux + AWS DevOps)
 
-**Version:** 1.1.0  
-**Last Updated:** December 2025  
-**OS Standard:** Amazon Linux 2 / Amazon Linux 2023  
+**Version:** 1.1.0
+**Last Updated:** December 2025
+**OS Standard:** Amazon Linux 2 / Amazon Linux 2023
 **Maintained By:** DevOps Team
 
+---
 
 ## 📌 Architecture Overview
+
+The Compressorr platform follows a modern cloud-native DevOps architecture:
 
 * **CI/CD** → Jenkins
 * **Code Quality** → SonarQube
@@ -16,6 +28,14 @@
 * **Monitoring** → Prometheus & Grafana
 * **Database** → MongoDB (StatefulSet)
 
+### High-Level Flow
+
+```
+GitHub → Jenkins → SonarQube → DockerHub → Amazon EKS
+                                       ↓
+                               Prometheus → Grafana
+```
+
 ---
 
 ## 1️⃣ Prerequisites
@@ -24,15 +44,21 @@
 
 * IAM User with:
 
-  * `AdministratorAccess` *(learning)* or least-privilege for prod
-* EC2, EKS, IAM, VPC access
+  * `AdministratorAccess` (learning / demo)
+  * Least-privilege IAM roles (production)
+* Access to:
+
+  * EC2
+  * EKS
+  * IAM
+  * VPC
 * DockerHub account
 
 ---
 
 ## 2️⃣ Base OS & Tooling (Amazon Linux)
 
-> **Run on all EC2 instances**
+> Run on **all EC2 instances**
 
 ```bash
 sudo yum update -y
@@ -50,7 +76,7 @@ sudo ./aws/install
 aws --version
 ```
 
-Configure:
+Configure AWS credentials:
 
 ```bash
 aws configure
@@ -106,10 +132,10 @@ ansible --version
 
 ## 8️⃣ EC2 Infrastructure (Amazon Linux AMI)
 
-✅ **Use Amazon Linux 2 AMI**
+✅ **Use Amazon Linux 2 AMI** (region specific)
 
 ```
-ami-0e731c8a588258d0d (example – always verify region)
+ami-0e731c8a588258d0d  # Example – always verify region
 ```
 
 ### Required EC2 Instances
@@ -121,12 +147,12 @@ ami-0e731c8a588258d0d (example – always verify region)
 | Monitoring     | t3.medium     |
 | App (optional) | t3.large      |
 
-✔ **Security Groups**
+### Security Group Ports
 
-* Jenkins: `22, 8080`
-* SonarQube: `22, 9000`
-* Monitoring: `22, 9090, 3000`
-* App: `22, 80, 3000, 8080`
+* **Jenkins:** `22, 8080`
+* **SonarQube:** `22, 9000`
+* **Monitoring:** `22, 9090, 3000`
+* **Application:** `22, 80, 3000, 8080`
 
 ---
 
@@ -151,17 +177,107 @@ sudo systemctl enable jenkins
 sudo systemctl start jenkins
 ```
 
-Get password:
+Get initial admin password:
 
 ```bash
 sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 ```
 
+Access Jenkins:
+
+```
+http://<JENKINS_IP>:8080
+```
+
+---
+
+## 🔟 Jenkins Configuration & Tool Integration
+
+### Required Jenkins Plugins
+
+Install from **Manage Jenkins → Plugins**:
+
+* Git
+* Pipeline
+* Docker Pipeline
+* SonarQube Scanner
+* Kubernetes CLI
+* AWS Credentials
+* GitHub Integration
+
+---
+
+### Jenkins Credentials Setup
+
+#### DockerHub
+
+* Type: Username & Password
+* ID: `dockerhub-credentials`
+
+#### AWS
+
+* Type: AWS Credentials
+* ID: `aws-credentials`
+
+#### SonarQube
+
+* Type: Secret Text
+* ID: `sonarqube-token`
+
+---
+
+### Jenkins ↔ SonarQube Integration
+
+1. **Manage Jenkins → Configure System**
+2. Add SonarQube Server:
+
+   * Name: `SonarQube`
+   * URL: `http://<SONAR_IP>:9000`
+   * Token: `sonarqube-token`
+
+✔ Pipeline **fails automatically** if Quality Gate fails
+
+---
+
+### Jenkins ↔ DockerHub Integration
+
+Fix Docker permissions:
+
+```bash
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+```
+
+Pipeline builds and pushes versioned images:
+
+```groovy
+docker.build("saikiranasamwar4/compressor-backend:${BUILD_NUMBER}")
+docker.push()
+```
+
+---
+
+### Jenkins ↔ Amazon EKS Integration
+
+Configure kubectl for Jenkins user:
+
+```bash
+sudo su - jenkins
+aws configure
+aws eks update-kubeconfig \
+--name media-compressor-cluster \
+--region us-east-1
+kubectl get nodes
+```
+
+✔ Jenkins deploys directly to EKS
+✔ No manual SSH to nodes
+
 ---
 
 ## 🔟 SonarQube Setup (Amazon Linux)
 
-### Kernel Tuning (MANDATORY)
+### Kernel Tuning (Mandatory)
 
 ```bash
 sudo sysctl -w vm.max_map_count=262144
@@ -175,7 +291,7 @@ echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
 echo "fs.file-max=65536" | sudo tee -a /etc/sysctl.conf
 ```
 
-### Install & Run SonarQube
+### Install SonarQube
 
 ```bash
 sudo yum install -y unzip
@@ -189,7 +305,7 @@ unzip sonarqube-*.zip -d /opt/sonarqube
 exit
 ```
 
-Start:
+Start SonarQube:
 
 ```bash
 /opt/sonarqube/sonarqube-*/bin/linux-x86-64/sonar.sh start
@@ -203,9 +319,7 @@ http://<SONAR_IP>:9000
 
 ---
 
-## 1️⃣1️⃣ DockerHub Build & Push (Verified)
-
-✔ **Commands are correct**
+## 1️⃣1️⃣ DockerHub Build & Push
 
 ```bash
 docker build -t saikiranasamwar4/compressor-backend:latest -f Dockerfiles/backend.Dockerfile .
@@ -218,7 +332,7 @@ docker push saikiranasamwar4/compressor-frontend:latest
 
 ---
 
-## 1️⃣2️⃣ EKS Cluster (Corrected & Verified)
+## 1️⃣2️⃣ Amazon EKS Cluster
 
 ```bash
 eksctl create cluster \
@@ -240,13 +354,7 @@ aws eks update-kubeconfig \
 
 ---
 
-## 1️⃣3️⃣ Kubernetes Deployment (Validated)
-
-✔ MongoDB StatefulSet
-✔ Backend Deployment
-✔ Frontend Deployment
-✔ HPA
-✔ Monitoring
+## 1️⃣3️⃣ Kubernetes Deployment
 
 ```bash
 kubectl apply -f k8s/namespace.yaml
@@ -256,51 +364,96 @@ kubectl apply -f k8s/frontend/
 kubectl apply -f k8s/monitoring/
 ```
 
----
+Includes:
 
-## 1️⃣4️⃣ Jenkins CI/CD Flow (Corrected)
-
-Pipeline stages:
-
-1. Git Checkout
-2. SonarQube Scan
-3. Docker Build
-4. Docker Push
-5. Deploy to EKS
-6. Verify Rollout
-
-✔ Credentials
-✔ Webhooks
-✔ SonarQube Token
-✔ kubectl configured for Jenkins user
+* MongoDB StatefulSet
+* Backend & Frontend Deployments
+* HPA
+* Prometheus & Grafana
 
 ---
 
-## 1️⃣5️⃣ Monitoring (Prometheus + Grafana)
+## 1️⃣4️⃣ Monitoring (Prometheus & Grafana)
 
-✔ Targets verified
-✔ Dashboards imported
-✔ Alerts configured
+### Monitoring Architecture
 
-Access:
+```
+Application Pods → /metrics → Prometheus → Grafana → Alerts
+```
 
-* Prometheus → `:9090`
-* Grafana → `:3000` (`admin/admin`)
+### Access
+
+* **Prometheus:** `http://<MONITORING_IP>:9090`
+* **Grafana:** `http://<MONITORING_IP>:3000`
+
+  * Username: `admin`
+  * Password: `admin`
+
+### What is Monitored
+
+* CPU & Memory
+* Pod health
+* HTTP error rate
+* Response latency
+* Deployment failures
 
 ---
 
-## 1️⃣6️⃣ Fixed Issues You Had (Important)
+## 1️⃣5️⃣ Jenkins + Monitoring Integration
 
-| Issue                | Fix                        |
-| -------------------- | -------------------------- |
-| Ubuntu commands      | Replaced with Amazon Linux |
-| Jenkins Java missing | Added Java 17              |
-| SonarQube crashes    | Added kernel tuning        |
-| Wrong eksctl URL     | Corrected                  |
-| Missing docker perms | Fixed                      |
-| Monitoring gaps      | Completed                  |
-| IAM assumptions      | Clarified                  |
+After deployment, Jenkins:
+
+* Verifies rollout status
+* Performs health checks
+* Relies on Prometheus alerts to detect failures
+
+✔ Prevents bad releases
+✔ Enables fast rollback
 
 ---
 
+## 1️⃣6️⃣ Fixed Issues Summary
 
+| Issue              | Fix Applied         |
+| ------------------ | ------------------- |
+| Ubuntu usage       | Amazon Linux only   |
+| Jenkins Java       | Java 17 added       |
+| SonarQube crash    | Kernel tuning added |
+| eksctl URL         | Corrected           |
+| Docker permissions | Fixed               |
+| Monitoring gaps    | Fully integrated    |
+| IAM confusion      | Clarified roles     |
+
+---
+
+## 👨‍💻 Author
+
+Om namoh bhagwate vasudevay namah 🕉
+
+Here is a **clean, professional, and README-ready Author section**, rewritten using the details you provided.
+You can **directly paste this at the end of your README.md**.
+
+---
+
+## 👨‍💻 Author
+
+**Saikiran Rajesh Asamwar**
+**AWS Certified Solutions Architect – Associate (AWS SAA)**
+**AWS DevOps Engineer**
+
+B.Tech in **Electronics & Telecommunication Engineering**
+**K.D.K. College of Engineering, Nagpur**
+
+### Core Expertise
+
+* Amazon Web Services (AWS)
+* CI/CD Pipelines (Jenkins)
+* Docker & Kubernetes (EKS)
+* Infrastructure Automation (Ansible)
+* Monitoring & Observability (Prometheus, Grafana)
+* Cloud-native Application Deployment
+
+**GitHub:** [https://github.com/saikiranasamwar4](https://github.com/saikiranasamwar4)
+**LinkedIn:** [https://www.linkedin.com/in/saikiran-asamwar](https://www.linkedin.com/in/saikiran-asamwar)
+
+---
