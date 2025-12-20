@@ -72,7 +72,7 @@ Configure AWS credentials:
 aws configure
 ```
 
----
+
 
 ## 4️⃣ Install Docker (Amazon Linux)
 
@@ -85,7 +85,6 @@ newgrp docker
 docker --version
 ```
 
----
 
 ## 5️⃣ Install kubectl
 
@@ -96,7 +95,6 @@ sudo mv kubectl /usr/local/bin/
 kubectl version --client
 ```
 
----
 
 ## 6️⃣ Install eksctl
 
@@ -107,7 +105,7 @@ sudo mv eksctl /usr/local/bin/
 eksctl version
 ```
 
----
+
 
 ## 7️⃣ Install Ansible (Amazon Linux)
 
@@ -122,7 +120,7 @@ ansible --version
 This section defines the **core EC2 infrastructure** required to support the Compressorr DevOps toolchain.
 Each instance is **purpose-built**, sized appropriately, and secured using **least-privilege networking**.
 
----
+
 
 ### 🔹 Operating System Standard
 
@@ -143,7 +141,7 @@ ami-0e731c8a588258d0d
 
 👉 Always verify the latest Amazon Linux AMI in your AWS region.
 
----
+
 
 ### 🔹 EC2 Instance Roles & Sizing
 
@@ -163,7 +161,7 @@ Separating services:
 * Avoids resource contention
 * Mirrors real-world production architecture
 
----
+
 
 ### 🔹 Storage Configuration
 
@@ -179,7 +177,7 @@ Recommended **EBS volumes**:
 ✔ gp3 offers better performance at lower cost
 ✔ Enough space for logs, plugins, and artifacts
 
----
+
 
 ### 🔹 Security Group Design (Network Access Control)
 
@@ -192,7 +190,7 @@ Each service uses a **dedicated security group** with **only required ports open
 | 22   | TCP      | SSH administration |
 | 8080 | TCP      | Jenkins Web UI     |
 
----
+
 
 #### 🔐 SonarQube Security Group
 
@@ -201,7 +199,6 @@ Each service uses a **dedicated security group** with **only required ports open
 | 22   | TCP      | SSH administration |
 | 9000 | TCP      | SonarQube Web UI   |
 
----
 
 #### 🔐 Monitoring Security Group
 
@@ -211,7 +208,7 @@ Each service uses a **dedicated security group** with **only required ports open
 | 9090 | TCP      | Prometheus UI      |
 | 3000 | TCP      | Grafana UI         |
 
----
+
 
 #### 🔐 Application Security Group
 
@@ -222,7 +219,7 @@ Each service uses a **dedicated security group** with **only required ports open
 | 3000 | TCP      | Backend API             |
 | 8080 | TCP      | Docker / Nginx / App UI |
 
----
+
 
 ### 🔹 Security Best Practices (Strongly Recommended)
 
@@ -233,7 +230,7 @@ Each service uses a **dedicated security group** with **only required ports open
 * 🔒 Enable **EBS encryption at rest**
 * 🔒 Disable password-based SSH login
 
----
+
 
 ### 🔹 Instance Tagging Strategy
 
@@ -250,7 +247,6 @@ Owner       = DevOps
 ✔ Improves observability
 ✔ Simplifies automation
 
----
 
 ### 🔹 High Availability & Scaling Notes
 
