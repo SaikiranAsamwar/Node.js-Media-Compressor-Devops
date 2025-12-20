@@ -52,7 +52,8 @@ sudo mv terraform /usr/local/bin/
 - AWS Account with appropriate permissions
 - AWS Access Key ID and Secret Access Key
 - Default VPC or custom VPC configured
-- Required IAM roles for EKS, EC2, and ECR
+- Required IAM roles for EKS and EC2
+- DockerHub account for container image storage
 
 ### Configure AWS CLI
 ```bash
@@ -290,28 +291,7 @@ docker push saikiranasamwar4/compressor-frontend:v1.0.0
 docker images | grep compressor
 ```
 
-### Step 4: Create AWS ECR Repositories (Alternative to DockerHub)
-```bash
-# Create ECR repositories
-aws ecr create-repository --repository-name saikiranasamwar4/backend --region us-east-1
-aws ecr create-repository --repository-name saikiranasamwar4/frontend --region us-east-1
-
-# Get ECR login
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin 514439471441.dkr.ecr.us-east-1.amazonaws.com
-
-# Tag and push to ECR
-docker tag saikiranasamwar4/compressor-backend:latest \
-  514439471441.dkr.ecr.us-east-1.amazonaws.com/saikiranasamwar4/backend:latest
-
-docker tag saikiranasamwar4/compressor-frontend:latest \
-  514439471441.dkr.ecr.us-east-1.amazonaws.com/saikiranasamwar4/frontend:latest
-
-docker push 514439471441.dkr.ecr.us-east-1.amazonaws.com/saikiranasamwar4/backend:latest
-docker push 514439471441.dkr.ecr.us-east-1.amazonaws.com/saikiranasamwar4/frontend:latest
-```
-
-### Step 5: Test Docker Compose Locally
+### Step 4: Test Docker Compose Locally
 ```bash
 # Create .env file
 cat > .env << EOF
@@ -724,12 +704,13 @@ exit
 - Branch: `*/main`
 - Script Path: `Jenkinsfile`
 
-### Step 7: Update Jenkinsfile
+### Step 7: Review Jenkinsfile
 
-The Jenkinsfile is already created. Review and update if needed:
-- Verify AWS account ID
-- Verify ECR repository names
-- Verify EKS cluster name
+The Jenkinsfile is already configured to use DockerHub. Verify:
+- DockerHub username is correct (`saikiranasamwar4`)
+- Image names match your DockerHub repositories
+- EKS cluster name matches your cluster (`media-compressor-cluster`)
+- AWS region is correct (`us-east-1`)
 
 ### Step 8: Configure GitHub Webhook
 

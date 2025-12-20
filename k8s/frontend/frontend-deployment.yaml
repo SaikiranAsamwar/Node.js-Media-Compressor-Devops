@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: 514439471441.dkr.ecr.us-east-1.amazonaws.com/saikiranasamwar4/frontend:latest
+        image: saikiranasamwar4/compressor-frontend:latest
         ports:
           - containerPort: 80

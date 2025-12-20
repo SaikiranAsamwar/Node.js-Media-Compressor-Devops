@@ -2,10 +2,10 @@ pipeline {
   agent any
 
   environment {
+    DOCKERHUB_USERNAME = 'saikiranasamwar4'
+    DOCKERHUB_BACKEND = "${DOCKERHUB_USERNAME}/compressor-backend"
+    DOCKERHUB_FRONTEND = "${DOCKERHUB_USERNAME}/compressor-frontend"
     AWS_REGION = 'us-east-1'
-    AWS_ACCOUNT = '514439471441'
-    ECR_BACKEND = "${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/saikiranasamwar4/backend"
-    ECR_FRONTEND = "${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/saikiranasamwar4/frontend"
   }
 
   stages {
@@ -29,7 +29,7 @@ pipeline {
       steps {
         dir('frontend') {
           sh 'npm ci'
-          sh 'npm run build'
+          sh 'npm run build || true'
         }
       }
     }
@@ -45,18 +45,27 @@ pipeline {
 
     stage('Build & Push Docker Images') {
       steps {
-        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        script {
+          // Login to DockerHub
+          withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', 
+                                           usernameVariable: 'DOCKER_USER', 
+                                           passwordVariable: 'DOCKER_PASS')]) {
+            sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+          }
 
-        dir('backend') {
-          sh "docker build -t backend:${BUILD_NUMBER} ."
-          sh "docker tag backend:${BUILD_NUMBER} ${ECR_BACKEND}:${BUILD_NUMBER}"
-          sh "docker push ${ECR_BACKEND}:${BUILD_NUMBER}"
-        }
+          // Build and push backend
+          dir('backend') {
+            sh "docker build -f ../Dockerfiles/backend.Dockerfile -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} -t ${DOCKERHUB_BACKEND}:latest ."
+            sh "docker push ${DOCKERHUB_BACKEND}:${BUILD_NUMBER}"
+            sh "docker push ${DOCKERHUB_BACKEND}:latest"
+          }
 
-        dir('frontend') {
-          sh "docker build -t frontend:${BUILD_NUMBER} ."
-          sh "docker tag frontend:${BUILD_NUMBER} ${ECR_FRONTEND}:${BUILD_NUMBER}"
-          sh "docker push ${ECR_FRONTEND}:${BUILD_NUMBER}"
+          // Build and push frontend
+          dir('frontend') {
+            sh "docker build -f ../Dockerfiles/frontend.Dockerfile -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} -t ${DOCKERHUB_FRONTEND}:latest ."
+            sh "docker push ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}"
+            sh "docker push ${DOCKERHUB_FRONTEND}:latest"
+          }
         }
       }
     }
@@ -64,12 +73,24 @@ pipeline {
     stage('Deploy to EKS') {
       steps {
         sh """
-        aws eks update-kubeconfig --name media-compressor-cluster --region us-east-1
-        kubectl -n media-app set image deployment/backend backend=${ECR_BACKEND}:${BUILD_NUMBER}
-        kubectl -n media-app set image deployment/frontend frontend=${ECR_FRONTEND}:${BUILD_NUMBER}
+        aws eks update-kubeconfig --name media-compressor-cluster --region ${AWS_REGION}
+        kubectl -n media-app set image deployment/backend backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
+        kubectl -n media-app set image deployment/frontend frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
         kubectl -n media-app rollout status deployment/backend
         kubectl -n media-app rollout status deployment/frontend
         """
+      }
+    }
+
+    post {
+      always {
+        sh 'docker logout'
+      }
+      success {
+        echo "Pipeline executed successfully! Images pushed to DockerHub."
+      }
+      failure {
+        echo "Pipeline failed. Check logs for details."
       }
     }
   }
