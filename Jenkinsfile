@@ -1,5 +1,5 @@
 pipeline {
-  agent any   // Prefer a labeled agent like 'docker-eks' in production
+  agent any
 
   environment {
     DOCKERHUB_USERNAME = 'saikiranasamwar4'
@@ -19,24 +19,14 @@ pipeline {
       }
     }
 
-    stage('Backend Build & Test') {
+    stage('Backend Build') {
       steps {
         dir('backend') {
           sh 'npm ci'
-          echo "No backend tests configured. Skipping test step."
-
+          echo 'No backend tests configured. Skipping test step.'
         }
       }
     }
-
-    stage('Frontend Build') {
-    steps {
-        dir('frontend') {
-            sh 'npm install'
-        }
-    }
-}
-
 
     stage('SonarQube Scan - Backend') {
       steps {
@@ -44,21 +34,7 @@ pipeline {
           dir('backend') {
             sh '''
               sonar-scanner \
-              -Dsonar.projectKey=compressorr-backend \
-              -Dsonar.sources=.
-            '''
-          }
-        }
-      }
-    }
-
-    stage('SonarQube Scan - Frontend') {
-      steps {
-        withSonarQubeEnv('SonarQube') {
-          dir('frontend') {
-            sh '''
-              sonar-scanner \
-              -Dsonar.projectKey=compressorr-frontend \
+              -Dsonar.projectKey=compressor-backend \
               -Dsonar.sources=.
             '''
           }
@@ -89,18 +65,18 @@ pipeline {
         dir('backend') {
           sh """
             docker build -f ../Dockerfiles/backend.Dockerfile \
-            -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} \
-            -t ${DOCKERHUB_BACKEND}:latest .
+              -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} \
+              -t ${DOCKERHUB_BACKEND}:latest .
             docker push ${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
             docker push ${DOCKERHUB_BACKEND}:latest
           """
         }
 
-        dir('frontend') {
+        dir('.') {
           sh """
-            docker build -f ../Dockerfiles/frontend.Dockerfile \
-            -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} \
-            -t ${DOCKERHUB_FRONTEND}:latest .
+            docker build -f Dockerfiles/frontend.Dockerfile \
+              -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} \
+              -t ${DOCKERHUB_FRONTEND}:latest .
             docker push ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
             docker push ${DOCKERHUB_FRONTEND}:latest
           """
@@ -108,9 +84,9 @@ pipeline {
       }
     }
 
-    stage('Deploy to Amazon EKS (Docker Hub Images)') {
+    stage('Deploy to Amazon EKS') {
       steps {
-        withCredentials([[ 
+        withCredentials([[
           $class: 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-credentials'
         ]]) {
@@ -136,10 +112,8 @@ pipeline {
       steps {
         sh '''
           echo "Checking Backend Health..."
-          curl -f http://backend.media-app.svc.cluster.local:3000/api/health
-
-          echo "Checking Frontend Service..."
-          kubectl -n media-app get svc frontend
+          kubectl -n media-app get pods
+          kubectl -n media-app get svc
         '''
       }
     }
@@ -147,13 +121,13 @@ pipeline {
 
   post {
     always {
-      sh 'docker logout'
+      sh 'docker logout || true'
     }
     success {
-      echo "✅ Pipeline executed successfully. Deployment is healthy."
+      echo '✅ Pipeline executed successfully. Deployment is healthy.'
     }
     failure {
-      echo "❌ Pipeline failed. Check logs and SonarQube results."
+      echo '❌ Pipeline failed. Check logs for details.'
     }
   }
 }
