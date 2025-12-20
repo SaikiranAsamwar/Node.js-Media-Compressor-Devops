@@ -5,9 +5,10 @@ pipeline {
     DOCKERHUB_USERNAME = 'saikiranasamwar4'
     DOCKERHUB_BACKEND  = "${DOCKERHUB_USERNAME}/compressor-backend"
     DOCKERHUB_FRONTEND = "${DOCKERHUB_USERNAME}/compressor-frontend"
-    AWS_REGION   = 'us-east-1'
-    EKS_CLUSTER  = 'media-compressor-cluster'
-    NAMESPACE    = 'media-app'
+
+    AWS_REGION  = 'us-east-1'
+    EKS_CLUSTER = 'media-compressor-cluster'
+    NAMESPACE   = 'media-app'
   }
 
   stages {
@@ -72,7 +73,7 @@ pipeline {
       }
     }
 
-    stage('Build & Push Docker Images') {
+    stage('Build & Push Docker Images (Docker Hub)') {
       steps {
         withCredentials([
           usernamePassword(
@@ -106,9 +107,9 @@ pipeline {
       }
     }
 
-    stage('Deploy to Amazon EKS') {
+    stage('Deploy to Amazon EKS (Docker Hub Images)') {
       steps {
-        withCredentials([[
+        withCredentials([[ 
           $class: 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-credentials'
         ]]) {
