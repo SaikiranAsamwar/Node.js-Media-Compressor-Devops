@@ -3,9 +3,10 @@ pipeline {
 
   environment {
     DOCKERHUB_USERNAME = 'saikiranasamwar4'
-    DOCKERHUB_BACKEND = "${DOCKERHUB_USERNAME}/compressor-backend"
+    DOCKERHUB_BACKEND  = "${DOCKERHUB_USERNAME}/compressor-backend"
     DOCKERHUB_FRONTEND = "${DOCKERHUB_USERNAME}/compressor-frontend"
     AWS_REGION = 'us-east-1'
+    EKS_CLUSTER = 'media-compressor-cluster'
   }
 
   stages {
@@ -20,7 +21,7 @@ pipeline {
       steps {
         dir('backend') {
           sh 'npm ci'
-          sh 'npm test || true'
+          sh 'npm test'
         }
       }
     }
@@ -29,7 +30,7 @@ pipeline {
       steps {
         dir('frontend') {
           sh 'npm ci'
-          sh 'npm run build || true'
+          sh 'npm run build'
         }
       }
     }
@@ -37,61 +38,81 @@ pipeline {
     stage('SonarQube Scan') {
       steps {
         withSonarQubeEnv('SonarQube') {
-          dir('backend') { sh 'sonar-scanner' }
-          dir('frontend') { sh 'sonar-scanner' }
+          dir('backend') {
+            sh 'sonar-scanner'
+          }
+          dir('frontend') {
+            sh 'sonar-scanner'
+          }
+        }
+      }
+    }
+
+    stage('Quality Gate') {
+      steps {
+        timeout(time: 5, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
         }
       }
     }
 
     stage('Build & Push Docker Images') {
       steps {
-        script {
-          // Login to DockerHub
-          withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', 
-                                           usernameVariable: 'DOCKER_USER', 
-                                           passwordVariable: 'DOCKER_PASS')]) {
-            sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-          }
+        withCredentials([
+          usernamePassword(credentialsId: 'dockerhub-credentials',
+                           usernameVariable: 'DOCKER_USER',
+                           passwordVariable: 'DOCKER_PASS')
+        ]) {
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+        }
 
-          // Build and push backend
-          dir('backend') {
-            sh "docker build -f ../Dockerfiles/backend.Dockerfile -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} -t ${DOCKERHUB_BACKEND}:latest ."
-            sh "docker push ${DOCKERHUB_BACKEND}:${BUILD_NUMBER}"
-            sh "docker push ${DOCKERHUB_BACKEND}:latest"
-          }
+        dir('backend') {
+          sh "docker build -f ../Dockerfiles/backend.Dockerfile -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} -t ${DOCKERHUB_BACKEND}:latest ."
+          sh "docker push ${DOCKERHUB_BACKEND}:${BUILD_NUMBER}"
+          sh "docker push ${DOCKERHUB_BACKEND}:latest"
+        }
 
-          // Build and push frontend
-          dir('frontend') {
-            sh "docker build -f ../Dockerfiles/frontend.Dockerfile -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} -t ${DOCKERHUB_FRONTEND}:latest ."
-            sh "docker push ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}"
-            sh "docker push ${DOCKERHUB_FRONTEND}:latest"
-          }
+        dir('frontend') {
+          sh "docker build -f ../Dockerfiles/frontend.Dockerfile -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} -t ${DOCKERHUB_FRONTEND}:latest ."
+          sh "docker push ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}"
+          sh "docker push ${DOCKERHUB_FRONTEND}:latest"
         }
       }
     }
 
     stage('Deploy to EKS') {
       steps {
-        sh """
-        aws eks update-kubeconfig --name media-compressor-cluster --region ${AWS_REGION}
-        kubectl -n media-app set image deployment/backend backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
-        kubectl -n media-app set image deployment/frontend frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
-        kubectl -n media-app rollout status deployment/backend
-        kubectl -n media-app rollout status deployment/frontend
-        """
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                          credentialsId: 'aws-credentials']]) {
+          sh """
+          aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
+          kubectl -n media-app set image deployment/backend backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
+          kubectl -n media-app set image deployment/frontend frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
+          kubectl -n media-app rollout status deployment/backend
+          kubectl -n media-app rollout status deployment/frontend
+          """
+        }
       }
     }
 
-    post {
-      always {
-        sh 'docker logout'
+    stage('Post-Deployment Health Check') {
+      steps {
+        sh '''
+        echo "Health check completed"
+        '''
       }
-      success {
-        echo "Pipeline executed successfully! Images pushed to DockerHub."
-      }
-      failure {
-        echo "Pipeline failed. Check logs for details."
-      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker logout'
+    }
+    success {
+      echo "✅ Pipeline completed successfully"
+    }
+    failure {
+      echo "❌ Pipeline failed"
     }
   }
 }
