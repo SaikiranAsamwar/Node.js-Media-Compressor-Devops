@@ -1,12 +1,13 @@
 pipeline {
-  agent any
+  agent any   // Prefer a labeled agent like 'docker-eks' in production
 
   environment {
     DOCKERHUB_USERNAME = 'saikiranasamwar4'
     DOCKERHUB_BACKEND  = "${DOCKERHUB_USERNAME}/compressor-backend"
     DOCKERHUB_FRONTEND = "${DOCKERHUB_USERNAME}/compressor-frontend"
-    AWS_REGION = 'us-east-1'
-    EKS_CLUSTER = 'media-compressor-cluster'
+    AWS_REGION   = 'us-east-1'
+    EKS_CLUSTER  = 'media-compressor-cluster'
+    NAMESPACE    = 'media-app'
   }
 
   stages {
@@ -35,14 +36,29 @@ pipeline {
       }
     }
 
-    stage('SonarQube Scan') {
+    stage('SonarQube Scan - Backend') {
       steps {
         withSonarQubeEnv('SonarQube') {
           dir('backend') {
-            sh 'sonar-scanner'
+            sh '''
+              sonar-scanner \
+              -Dsonar.projectKey=compressorr-backend \
+              -Dsonar.sources=.
+            '''
           }
+        }
+      }
+    }
+
+    stage('SonarQube Scan - Frontend') {
+      steps {
+        withSonarQubeEnv('SonarQube') {
           dir('frontend') {
-            sh 'sonar-scanner'
+            sh '''
+              sonar-scanner \
+              -Dsonar.projectKey=compressorr-frontend \
+              -Dsonar.sources=.
+            '''
           }
         }
       }
@@ -59,37 +75,56 @@ pipeline {
     stage('Build & Push Docker Images') {
       steps {
         withCredentials([
-          usernamePassword(credentialsId: 'dockerhub-credentials',
-                           usernameVariable: 'DOCKER_USER',
-                           passwordVariable: 'DOCKER_PASS')
+          usernamePassword(
+            credentialsId: 'dockerhub-credentials',
+            usernameVariable: 'DOCKER_USER',
+            passwordVariable: 'DOCKER_PASS'
+          )
         ]) {
           sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
         }
 
         dir('backend') {
-          sh "docker build -f ../Dockerfiles/backend.Dockerfile -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} -t ${DOCKERHUB_BACKEND}:latest ."
-          sh "docker push ${DOCKERHUB_BACKEND}:${BUILD_NUMBER}"
-          sh "docker push ${DOCKERHUB_BACKEND}:latest"
+          sh """
+            docker build -f ../Dockerfiles/backend.Dockerfile \
+            -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} \
+            -t ${DOCKERHUB_BACKEND}:latest .
+            docker push ${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
+            docker push ${DOCKERHUB_BACKEND}:latest
+          """
         }
 
         dir('frontend') {
-          sh "docker build -f ../Dockerfiles/frontend.Dockerfile -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} -t ${DOCKERHUB_FRONTEND}:latest ."
-          sh "docker push ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}"
-          sh "docker push ${DOCKERHUB_FRONTEND}:latest"
+          sh """
+            docker build -f ../Dockerfiles/frontend.Dockerfile \
+            -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} \
+            -t ${DOCKERHUB_FRONTEND}:latest .
+            docker push ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
+            docker push ${DOCKERHUB_FRONTEND}:latest
+          """
         }
       }
     }
 
-    stage('Deploy to EKS') {
+    stage('Deploy to Amazon EKS') {
       steps {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                          credentialsId: 'aws-credentials']]) {
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-credentials'
+        ]]) {
           sh """
-          aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
-          kubectl -n media-app set image deployment/backend backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
-          kubectl -n media-app set image deployment/frontend frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
-          kubectl -n media-app rollout status deployment/backend
-          kubectl -n media-app rollout status deployment/frontend
+            aws eks update-kubeconfig \
+              --name ${EKS_CLUSTER} \
+              --region ${AWS_REGION}
+
+            kubectl -n ${NAMESPACE} set image deployment/backend \
+              backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
+
+            kubectl -n ${NAMESPACE} set image deployment/frontend \
+              frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
+
+            kubectl -n ${NAMESPACE} rollout status deployment/backend
+            kubectl -n ${NAMESPACE} rollout status deployment/frontend
           """
         }
       }
@@ -98,7 +133,11 @@ pipeline {
     stage('Post-Deployment Health Check') {
       steps {
         sh '''
-        echo "Health check completed"
+          echo "Checking Backend Health..."
+          curl -f http://backend.media-app.svc.cluster.local:3000/api/health
+
+          echo "Checking Frontend Service..."
+          kubectl -n media-app get svc frontend
         '''
       }
     }
@@ -109,10 +148,10 @@ pipeline {
       sh 'docker logout'
     }
     success {
-      echo "✅ Pipeline completed successfully"
+      echo "✅ Pipeline executed successfully. Deployment is healthy."
     }
     failure {
-      echo "❌ Pipeline failed"
+      echo "❌ Pipeline failed. Check logs and SonarQube results."
     }
   }
 }
