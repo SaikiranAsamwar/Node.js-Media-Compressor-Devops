@@ -30,13 +30,13 @@ pipeline {
     }
 
     stage('Frontend Build') {
-      steps {
+    steps {
         dir('frontend') {
-          sh 'npm ci'
-          sh 'npm run build'
+            sh 'npm install'
         }
-      }
     }
+}
+
 
     stage('SonarQube Scan - Backend') {
       steps {
