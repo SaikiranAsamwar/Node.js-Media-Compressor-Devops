@@ -116,35 +116,151 @@ sudo yum install -y amazon-linux-extras
 sudo amazon-linux-extras enable ansible2
 sudo yum install -y ansible
 ansible --version
-```
-
----
 
 ## 8️⃣ EC2 Infrastructure (Amazon Linux AMI)
 
-✅ **Use Amazon Linux 2 AMI** (region specific)
-
-```
-ami-0e731c8a588258d0d  # Example – always verify region
-```
-
-### Required EC2 Instances
-
-| Service        | Instance Type |
-| -------------- | ------------- |
-| Jenkins        | t3.medium     |
-| SonarQube      | t3.medium     |
-| Monitoring     | t3.medium     |
-| App (optional) | t3.large      |
-
-### Security Group Ports
-
-* **Jenkins:** `22, 8080`
-* **SonarQube:** `22, 9000`
-* **Monitoring:** `22, 9090, 3000`
-* **Application:** `22, 80, 3000, 8080`
+This section defines the **core EC2 infrastructure** required to support the Compressorr DevOps toolchain.
+Each instance is **purpose-built**, sized appropriately, and secured using **least-privilege networking**.
 
 ---
+
+### 🔹 Operating System Standard
+
+✅ **Amazon Linux 2 AMI (Recommended)**
+
+* Officially maintained by AWS
+* Optimized for EC2 performance
+* Native compatibility with AWS CLI, EKS, Docker, and monitoring tools
+* Long-term security updates
+
+> ⚠️ AMI IDs are **region-specific** and may change over time.
+
+**Example (us-east-1):**
+
+```
+ami-0e731c8a588258d0d
+```
+
+👉 Always verify the latest Amazon Linux AMI in your AWS region.
+
+---
+
+### 🔹 EC2 Instance Roles & Sizing
+
+Each EC2 instance has a **single responsibility**, following DevOps best practices.
+
+| Service                           | Instance Type | Purpose                  | Reasoning                                    |
+| --------------------------------- | ------------- | ------------------------ | -------------------------------------------- |
+| **Jenkins Server**                | `t3.medium`   | CI/CD orchestration      | Handles builds, pipelines, Docker operations |
+| **SonarQube Server**              | `t3.medium`   | Code quality analysis    | Requires stable memory & CPU                 |
+| **Monitoring Server**             | `t3.medium`   | Prometheus + Grafana     | Collects & visualizes metrics                |
+| **Application Server (Optional)** | `t3.large`    | Docker-based app runtime | Extra CPU & memory for containers            |
+
+🔹 **Why not combine services?**
+Separating services:
+
+* Improves fault isolation
+* Avoids resource contention
+* Mirrors real-world production architecture
+
+---
+
+### 🔹 Storage Configuration
+
+Recommended **EBS volumes**:
+
+| Instance    | Volume Type | Size     |
+| ----------- | ----------- | -------- |
+| Jenkins     | gp3         | 30 GB    |
+| SonarQube   | gp3         | 30–40 GB |
+| Monitoring  | gp3         | 30 GB    |
+| Application | gp3         | 50 GB    |
+
+✔ gp3 offers better performance at lower cost
+✔ Enough space for logs, plugins, and artifacts
+
+---
+
+### 🔹 Security Group Design (Network Access Control)
+
+Each service uses a **dedicated security group** with **only required ports open**.
+
+#### 🔐 Jenkins Security Group
+
+| Port | Protocol | Purpose            |
+| ---- | -------- | ------------------ |
+| 22   | TCP      | SSH administration |
+| 8080 | TCP      | Jenkins Web UI     |
+
+---
+
+#### 🔐 SonarQube Security Group
+
+| Port | Protocol | Purpose            |
+| ---- | -------- | ------------------ |
+| 22   | TCP      | SSH administration |
+| 9000 | TCP      | SonarQube Web UI   |
+
+---
+
+#### 🔐 Monitoring Security Group
+
+| Port | Protocol | Purpose            |
+| ---- | -------- | ------------------ |
+| 22   | TCP      | SSH administration |
+| 9090 | TCP      | Prometheus UI      |
+| 3000 | TCP      | Grafana UI         |
+
+---
+
+#### 🔐 Application Security Group
+
+| Port | Protocol | Purpose                 |
+| ---- | -------- | ----------------------- |
+| 22   | TCP      | SSH administration      |
+| 80   | TCP      | HTTP (Frontend)         |
+| 3000 | TCP      | Backend API             |
+| 8080 | TCP      | Docker / Nginx / App UI |
+
+---
+
+### 🔹 Security Best Practices (Strongly Recommended)
+
+* 🔒 Restrict SSH (`22`) to **your IP only**
+* 🔒 Do NOT expose internal services publicly
+* 🔒 Use separate security groups per service
+* 🔒 Enable **IAM Roles** instead of static AWS keys
+* 🔒 Enable **EBS encryption at rest**
+* 🔒 Disable password-based SSH login
+
+---
+
+### 🔹 Instance Tagging Strategy
+
+Use consistent tags for management and cost tracking:
+
+```text
+Name        = Jenkins-Server / SonarQube-Server / Monitoring-Server
+Environment = Production
+Project     = Compressorr
+Owner       = DevOps
+```
+
+✔ Helps with billing
+✔ Improves observability
+✔ Simplifies automation
+
+---
+
+### 🔹 High Availability & Scaling Notes
+
+* Jenkins & SonarQube are **stateful** → single instance recommended
+* Monitoring can be:
+
+  * Standalone (learning)
+  * Kubernetes-native (production)
+* Application workloads should run on **EKS**, not EC2 (recommended)
+
 
 ## 9️⃣ Jenkins Setup (Amazon Linux)
 
