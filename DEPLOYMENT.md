@@ -1,5 +1,3 @@
----
-
 # 🚀 Compressorr – Production Deployment Guide (Amazon Linux + AWS DevOps)
 
 **Version:** 1.1.0
@@ -7,7 +5,6 @@
 **OS Standard:** Amazon Linux 2 / Amazon Linux 2023
 **Maintained By:** DevOps Team
 
----
 
 ## 📌 Architecture Overview
 
