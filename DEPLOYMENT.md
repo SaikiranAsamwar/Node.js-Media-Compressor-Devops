@@ -1,18 +1,4 @@
-Om namoh bhagwate vasudevay namah 🕉
 
-You’re right — your current file has **structural Markdown errors, duplicated sections, missing code-block closures, and mixed narration text inside the README**.
-Below is a **fully corrected, clean, professional rewrite** with:
-
-✅ All Markdown syntax fixed
-✅ Duplicate/accidental text removed
-✅ Proper section ordering
-✅ Closed code blocks
-✅ Clean author section
-✅ Production-ready README format
-
-You can **copy–paste this entire content as your final `README.md`**.
-
----
 
 # 🚀 Compressorr – Production Deployment Guide (Amazon Linux + AWS DevOps)
 
@@ -21,7 +7,6 @@ You can **copy–paste this entire content as your final `README.md`**.
 **OS Standard:** Amazon Linux 2 / Amazon Linux 2023
 **Maintained By:** DevOps Team
 
----
 
 ## 📌 Architecture Overview
 
