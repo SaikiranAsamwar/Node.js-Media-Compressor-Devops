@@ -1,0 +1,13 @@
+---
+- name: Complete Infrastructure Setup
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Run all setup playbooks in sequence
+      include_tasks: "{{ item }}"
+      loop:
+        - install-docker.yml
+        - setup-jenkins.yml
+        - setup-sonarqube.yml
+        - setup-monitoring.yml
+        - deploy-app.yml

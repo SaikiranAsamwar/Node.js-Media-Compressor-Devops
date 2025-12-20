@@ -1,0 +1,64 @@
+---
+- name: Deploy Compressorr Application
+  hosts: app
+  become: yes
+  vars:
+    app_dir: /opt/compressorr
+    docker_compose_version: "2.23.3"
+
+  tasks:
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Copy docker-compose file
+      copy:
+        src: ../../docker-compose.yml
+        dest: "{{ app_dir }}/docker-compose.yml"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Copy environment file
+      copy:
+        dest: "{{ app_dir }}/.env"
+        content: |
+          JWT_SECRET={{ lookup('password', '/dev/null chars=ascii_letters,digits length=32') }}
+          SESSION_SECRET={{ lookup('password', '/dev/null chars=ascii_letters,digits length=32') }}
+          GOOGLE_CLIENT_ID=
+          GOOGLE_CLIENT_SECRET=
+          GOOGLE_CALLBACK_URL=http://{{ ansible_host }}:3000/auth/google/callback
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0600'
+
+    - name: Pull latest Docker images
+      community.docker.docker_image:
+        name: "{{ item }}"
+        source: pull
+      loop:
+        - saikiranasamwar4/compressor-backend:latest
+        - saikiranasamwar4/compressor-frontend:latest
+
+    - name: Start application with Docker Compose
+      community.docker.docker_compose:
+        project_src: "{{ app_dir }}"
+        state: present
+        pull: yes
+
+    - name: Wait for backend to be healthy
+      uri:
+        url: "http://localhost:3000/api/health"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 30
+      delay: 5
+
+    - name: Display application URLs
+      debug:
+        msg:
+          - "Frontend: http://{{ ansible_host }}:8080"
+          - "Backend: http://{{ ansible_host }}:3000"

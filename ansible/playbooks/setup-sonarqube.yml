@@ -1,0 +1,111 @@
+---
+- name: Setup SonarQube on EC2
+  hosts: sonarqube
+  become: yes
+  vars:
+    sonarqube_version: "10.3.0.82913"
+    sonarqube_port: 9000
+
+  tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - openjdk-17-jdk
+          - unzip
+          - wget
+        state: present
+
+    - name: Create SonarQube user
+      user:
+        name: sonarqube
+        system: yes
+        shell: /bin/bash
+        home: /opt/sonarqube
+
+    - name: Download SonarQube
+      get_url:
+        url: "https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-{{ sonarqube_version }}.zip"
+        dest: /tmp/sonarqube.zip
+
+    - name: Extract SonarQube
+      unarchive:
+        src: /tmp/sonarqube.zip
+        dest: /opt/
+        remote_src: yes
+        owner: sonarqube
+        group: sonarqube
+
+    - name: Create symbolic link
+      file:
+        src: "/opt/sonarqube-{{ sonarqube_version }}"
+        dest: /opt/sonarqube
+        state: link
+        owner: sonarqube
+        group: sonarqube
+
+    - name: Configure kernel parameters
+      sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        state: present
+        reload: yes
+      loop:
+        - { name: 'vm.max_map_count', value: '524288' }
+        - { name: 'fs.file-max', value: '131072' }
+
+    - name: Set ulimits for SonarQube
+      pam_limits:
+        domain: sonarqube
+        limit_type: "{{ item.limit_type }}"
+        limit_item: "{{ item.limit_item }}"
+        value: "{{ item.value }}"
+      loop:
+        - { limit_type: 'soft', limit_item: 'nofile', value: '131072' }
+        - { limit_type: 'hard', limit_item: 'nofile', value: '131072' }
+        - { limit_type: 'soft', limit_item: 'nproc', value: '8192' }
+        - { limit_type: 'hard', limit_item: 'nproc', value: '8192' }
+
+    - name: Create SonarQube systemd service
+      copy:
+        dest: /etc/systemd/system/sonarqube.service
+        content: |
+          [Unit]
+          Description=SonarQube service
+          After=network.target
+
+          [Service]
+          Type=forking
+          User=sonarqube
+          Group=sonarqube
+          ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
+          ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
+          LimitNOFILE=131072
+          LimitNPROC=8192
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Start SonarQube service
+      service:
+        name: sonarqube
+        state: started
+        enabled: yes
+
+    - name: Wait for SonarQube to start
+      wait_for:
+        port: "{{ sonarqube_port }}"
+        delay: 30
+        timeout: 300
+
+    - name: Display SonarQube URL
+      debug:
+        msg: "SonarQube is accessible at http://{{ ansible_host }}:{{ sonarqube_port }} (Default credentials: admin/admin)"
