@@ -1,5 +1,5 @@
 # 🚀 Complete CI/CD Pipeline Setup Guide
-## 3-Stage Pipeline: Git → SonarQube → Docker & DockerHub
+## 4-Stage Pipeline: Git → Docker & DockerHub → EKS Deployment → Health Check
 
 ---
 
@@ -7,12 +7,13 @@
 1. [EC2 Instance Setup](#1-ec2-instance-setup)
 2. [Server Initial Configuration](#2-server-initial-configuration)
 3. [Stage 1: Git Configuration](#3-stage-1-git-configuration)
-4. [Stage 2: SonarQube Setup](#4-stage-2-sonarqube-setup)
-5. [Stage 3: Docker & DockerHub Setup](#5-stage-3-docker--dockerhub-setup)
-6. [Jenkins Installation & Configuration](#6-jenkins-installation--configuration)
-7. [Pipeline Configuration](#7-pipeline-configuration)
-8. [Testing the Pipeline](#8-testing-the-pipeline)
-9. [Troubleshooting](#9-troubleshooting)
+4. [Stage 2: Docker & DockerHub Setup](#4-stage-2-docker--dockerhub-setup)
+5. [Stage 3: EKS Cluster Setup](#5-stage-3-eks-cluster-setup)
+6. [Stage 4: Kubernetes Configuration](#6-stage-4-kubernetes-configuration)
+7. [Jenkins Installation & Configuration](#7-jenkins-installation--configuration)
+8. [Pipeline Configuration](#8-pipeline-configuration)
+9. [Testing the Pipeline](#9-testing-the-pipeline)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
@@ -27,7 +28,7 @@
 
 #### Step 2: Configure Instance Details
 ```yaml
-Name: Jenkins-SonarQube-Docker-Server
+Name: Jenkins-Docker-EKS-Server
 AMI: Amazon Linux 2023 (or Amazon Linux 2)
 Instance Type: t3.medium (minimum recommended)
   - vCPUs: 2
@@ -50,7 +51,6 @@ Create a new security group with the following inbound rules:
 | HTTP            | TCP      | 80         | 0.0.0.0/0   | HTTP access              |
 | HTTPS           | TCP      | 443        | 0.0.0.0/0   | HTTPS access             |
 | Custom TCP      | TCP      | 8080       | 0.0.0.0/0   | Jenkins                  |
-| Custom TCP      | TCP      | 9000       | 0.0.0.0/0   | SonarQube                |
 | Custom TCP      | TCP      | 3000       | 0.0.0.0/0   | Backend App (optional)   |
 
 **Security Group Name:** `Jenkins-CICD-SG`
@@ -117,28 +117,7 @@ sudo vim /etc/hosts
 exit
 ```
 
-### 2.4 Increase System Limits for SonarQube
-
-```bash
-# Edit sysctl.conf
-sudo vim /etc/sysctl.conf
-
-# Add the following lines:
-vm.max_map_count=524288
-fs.file-max=131072
-
-# Edit limits.conf
-sudo vim /etc/security/limits.conf
-
-# Add the following lines:
-sonarqube   -   nofile   131072
-sonarqube   -   nproc    8192
-
-# Apply changes
-sudo sysctl -p
-```
-
-### 2.5 Configure Firewall (if enabled)
+### 2.4 Configure Firewall (if enabled)
 
 ```bash
 # Check firewall status
@@ -146,7 +125,6 @@ sudo systemctl status firewalld
 
 # If firewalld is active, add rules:
 sudo firewall-cmd --permanent --add-port=8080/tcp  # Jenkins
-sudo firewall-cmd --permanent --add-port=9000/tcp  # SonarQube
 sudo firewall-cmd --reload
 ```
 
@@ -205,236 +183,9 @@ git status
 
 ---
 
-## 4. Stage 2: SonarQube Setup
+## 4. Stage 2: Docker & DockerHub Setup
 
-### 4.1 Install Java (Required for SonarQube)
-
-```bash
-# Install Java 17 (required for SonarQube 10.x)
-sudo yum install java-17-amazon-corretto -y
-
-# Verify installation
-java -version
-
-# Set JAVA_HOME
-echo 'export JAVA_HOME=/usr/lib/jvm/java-17-amazon-corretto' | sudo tee -a /etc/profile
-echo 'export PATH=$JAVA_HOME/bin:$PATH' | sudo tee -a /etc/profile
-source /etc/profile
-
-# Verify JAVA_HOME
-echo $JAVA_HOME
-```
-
-### 4.2 Install PostgreSQL (SonarQube Database)
-
-```bash
-# Install PostgreSQL 14
-sudo yum install postgresql14 postgresql14-server -y
-
-# Initialize database
-sudo postgresql-setup --initdb
-
-# Start and enable PostgreSQL
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-
-# Check status
-sudo systemctl status postgresql
-```
-
-### 4.3 Configure PostgreSQL for SonarQube
-
-```bash
-# Switch to postgres user
-sudo -i -u postgres
-
-# Create SonarQube database and user
-psql
-
-# Run these SQL commands:
-CREATE DATABASE sonarqube;
-CREATE USER sonarqube WITH ENCRYPTED PASSWORD 'sonar123';
-GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonarqube;
-ALTER DATABASE sonarqube OWNER TO sonarqube;
-\q
-
-# Exit postgres user
-exit
-```
-
-#### Configure PostgreSQL Authentication
-
-```bash
-# Edit pg_hba.conf
-sudo vim /var/lib/pgsql/data/pg_hba.conf
-
-# Find the lines with 'peer' and 'ident' and change to 'md5':
-# Change from:
-# local   all             all                                     peer
-# host    all             all             127.0.0.1/32            ident
-
-# To:
-# local   all             all                                     md5
-# host    all             all             127.0.0.1/32            md5
-
-# Restart PostgreSQL
-sudo systemctl restart postgresql
-```
-
-### 4.4 Create SonarQube User
-
-```bash
-# Create system user for SonarQube
-sudo useradd -r -s /bin/bash sonarqube
-
-# Create SonarQube directory
-sudo mkdir -p /opt/sonarqube
-sudo chown -R sonarqube:sonarqube /opt/sonarqube
-```
-
-### 4.5 Download and Install SonarQube
-
-```bash
-# Download SonarQube (Latest LTS version)
-cd /tmp
-wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-10.3.0.82913.zip
-
-# Unzip
-sudo unzip sonarqube-10.3.0.82913.zip -d /opt/
-
-# Move and rename
-sudo mv /opt/sonarqube-10.3.0.82913 /opt/sonarqube
-
-# Set ownership
-sudo chown -R sonarqube:sonarqube /opt/sonarqube
-```
-
-### 4.6 Configure SonarQube
-
-```bash
-# Edit SonarQube configuration
-sudo vim /opt/sonarqube/conf/sonar.properties
-
-# Uncomment and modify these lines:
-sonar.jdbc.username=sonarqube
-sonar.jdbc.password=sonar123
-sonar.jdbc.url=jdbc:postgresql://localhost:5432/sonarqube
-
-# Set web server properties:
-sonar.web.host=0.0.0.0
-sonar.web.port=9000
-
-# Save and exit (:wq)
-```
-
-### 4.7 Create SonarQube Systemd Service
-
-```bash
-# Create service file
-sudo vim /etc/systemd/system/sonarqube.service
-
-# Add the following content:
-```
-
-```ini
-[Unit]
-Description=SonarQube service
-After=syslog.target network.target
-
-[Service]
-Type=forking
-ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start
-ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop
-User=sonarqube
-Group=sonarqube
-Restart=always
-LimitNOFILE=131072
-LimitNPROC=8192
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-# Save and reload systemd
-sudo systemctl daemon-reload
-
-# Start SonarQube
-sudo systemctl start sonarqube
-
-# Enable SonarQube to start on boot
-sudo systemctl enable sonarqube
-
-# Check status
-sudo systemctl status sonarqube
-
-# Check logs if needed
-sudo tail -f /opt/sonarqube/logs/sonar.log
-```
-
-### 4.8 Access SonarQube Web Interface
-
-```bash
-# Wait 2-3 minutes for SonarQube to start
-# Access: http://<YOUR-EC2-PUBLIC-IP>:9000
-
-# Default credentials:
-Username: admin
-Password: admin
-
-# You'll be prompted to change password on first login
-```
-
-### 4.9 Install SonarQube Scanner
-
-```bash
-# Download SonarQube Scanner
-cd /tmp
-wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-
-# Unzip
-sudo unzip sonar-scanner-cli-5.0.1.3006-linux.zip -d /opt/
-
-# Rename
-sudo mv /opt/sonar-scanner-5.0.1.3006-linux /opt/sonar-scanner
-
-# Add to PATH
-echo 'export PATH=$PATH:/opt/sonar-scanner/bin' | sudo tee -a /etc/profile
-source /etc/profile
-
-# Verify installation
-sonar-scanner --version
-```
-
-### 4.10 Configure SonarQube Scanner
-
-```bash
-# Edit scanner configuration
-sudo vim /opt/sonar-scanner/conf/sonar-scanner.properties
-
-# Uncomment and set:
-sonar.host.url=http://localhost:9000
-sonar.sourceEncoding=UTF-8
-
-# Save and exit
-```
-
-### 4.11 Generate SonarQube Token for Jenkins
-
-1. **Access SonarQube:** http://&lt;YOUR-EC2-IP&gt;:9000
-2. **Login** with admin credentials
-3. **Navigate to:** My Account → Security → Generate Tokens
-4. **Token Name:** `jenkins-token`
-5. **Type:** Global Analysis Token
-6. **Expires in:** 90 days (or No expiration)
-7. **Click Generate** and **COPY THE TOKEN** (you won't see it again!)
-8. **Save it securely:** Example: `squ_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0`
-
----
-
-## 5. Stage 3: Docker & DockerHub Setup
-
-### 5.1 Install Docker
+### 4.1 Install Docker
 
 ```bash
 # Install Docker
@@ -451,7 +202,7 @@ docker --version
 sudo docker ps
 ```
 
-### 5.2 Configure Docker Permissions
+### 4.2 Configure Docker Permissions
 
 ```bash
 # Add ec2-user to docker group
@@ -468,7 +219,7 @@ newgrp docker
 docker ps
 ```
 
-### 5.3 Install Docker Compose
+### 4.3 Install Docker Compose
 
 ```bash
 # Download Docker Compose
@@ -481,7 +232,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 docker-compose --version
 ```
 
-### 5.4 Create DockerHub Account
+### 4.4 Create DockerHub Account
 
 1. **Visit:** https://hub.docker.com
 2. **Click:** Sign Up
@@ -495,7 +246,7 @@ docker-compose --version
 6. **Repeat** for `compressor-frontend`
 7. **Note your DockerHub username:** Example: `saikiranasamwar4`
 
-### 5.5 Generate DockerHub Access Token
+### 4.5 Generate DockerHub Access Token
 
 1. **Login to DockerHub:** https://hub.docker.com
 2. **Navigate to:** Account Settings → Security → New Access Token
@@ -504,7 +255,7 @@ docker-compose --version
 5. **Click Generate** and **COPY THE TOKEN**
 6. **Save securely:** Example: `dckr_pat_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6`
 
-### 5.6 Test Docker Login
+### 4.6 Test Docker Login
 
 ```bash
 # Login to DockerHub (from EC2)
@@ -518,7 +269,7 @@ docker info | grep Username
 docker logout
 ```
 
-### 5.7 Configure Docker Daemon (Optional but Recommended)
+### 4.7 Configure Docker Daemon (Optional but Recommended)
 
 ```bash
 # Create daemon.json
@@ -545,9 +296,276 @@ sudo systemctl restart docker
 
 ---
 
-## 6. Jenkins Installation & Configuration
+## 5. Stage 3: EKS Cluster Setup
 
-### 6.1 Install Jenkins
+### 5.1 Install AWS CLI
+
+```bash
+# Download and install AWS CLI v2
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Verify installation
+aws --version
+```
+
+### 5.2 Configure AWS Credentials
+
+```bash
+# Configure AWS CLI
+aws configure
+
+# You'll be prompted for:
+AWS Access Key ID: <YOUR_ACCESS_KEY>
+AWS Secret Access Key: <YOUR_SECRET_KEY>
+Default region name: us-east-1
+Default output format: json
+```
+
+#### To Get AWS Credentials:
+
+1. **Login to AWS Console**
+2. **Navigate to:** IAM → Users → Your User
+3. **Click:** Security credentials tab
+4. **Click:** Create access key
+5. **Select:** Command Line Interface (CLI)
+6. **Click:** Next → Create access key
+7. **Copy** Access Key ID and Secret Access Key
+8. **Important:** Download and save securely!
+
+### 5.3 Install kubectl
+
+```bash
+# Download kubectl binary
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+
+# Make it executable
+chmod +x kubectl
+
+# Move to PATH
+sudo mv kubectl /usr/local/bin/
+
+# Verify installation
+kubectl version --client
+```
+
+### 5.4 Install eksctl
+
+```bash
+# Download eksctl
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+
+# Move to PATH
+sudo mv /tmp/eksctl /usr/local/bin
+
+# Verify installation
+eksctl version
+```
+
+### 5.5 Create EKS Cluster
+
+#### Option 1: Using eksctl (Recommended for beginners)
+
+```bash
+# Create cluster with eksctl
+eksctl create cluster \
+  --name media-compressor-cluster \
+  --region us-east-1 \
+  --nodegroup-name standard-workers \
+  --node-type t3.medium \
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 3 \
+  --managed
+
+# This will take 15-20 minutes
+```
+
+#### Option 2: Using AWS Console
+
+1. **Navigate to:** EKS Console
+2. **Click:** Create cluster
+3. **Cluster name:** `media-compressor-cluster`
+4. **Kubernetes version:** Latest stable (e.g., 1.28)
+5. **Cluster service role:** Create new or select existing
+6. **Click:** Next
+7. **VPC:** Use default VPC or create new
+8. **Subnets:** Select at least 2 subnets in different AZs
+9. **Security groups:** Default
+10. **Cluster endpoint access:** Public
+11. **Click:** Next → Next → Create
+
+#### Create Node Group (if using AWS Console):
+
+1. **Navigate to:** Your cluster → Compute → Add node group
+2. **Node group name:** `standard-workers`
+3. **Node IAM role:** Create new or select existing
+4. **Click:** Next
+5. **Instance type:** t3.medium
+6. **Disk size:** 20 GB
+7. **Desired size:** 2
+8. **Minimum size:** 1
+9. **Maximum size:** 3
+10. **Click:** Next → Next → Create
+
+### 5.6 Verify EKS Cluster
+
+```bash
+# Update kubeconfig
+aws eks update-kubeconfig --name media-compressor-cluster --region us-east-1
+
+# Verify cluster connection
+kubectl get nodes
+
+# You should see 2 nodes in Ready state
+# Example output:
+# NAME                           STATUS   ROLES    AGE   VERSION
+# ip-192-168-1-10.ec2.internal   Ready    <none>   5m    v1.28.0
+# ip-192-168-1-11.ec2.internal   Ready    <none>   5m    v1.28.0
+```
+
+### 5.7 Create IAM User for Jenkins (EKS Access)
+
+```bash
+# Create IAM policy for Jenkins
+cat > jenkins-eks-policy.json <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "eks:DescribeCluster",
+                "eks:ListClusters",
+                "eks:UpdateClusterConfig",
+                "eks:DescribeNodegroup",
+                "eks:ListNodegroups",
+                "eks:DescribeUpdate",
+                "eks:ListUpdates"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+
+# Create IAM policy
+aws iam create-policy \
+    --policy-name Jenkins-EKS-Access \
+    --policy-document file://jenkins-eks-policy.json
+
+# Note the Policy ARN from output
+```
+
+#### Create IAM User via AWS Console:
+
+1. **Navigate to:** IAM → Users → Create user
+2. **User name:** `jenkins-eks-user`
+3. **Click:** Next
+4. **Attach policies:**
+   - `Jenkins-EKS-Access` (custom policy created above)
+   - `AmazonEKSClusterPolicy`
+5. **Click:** Next → Create user
+6. **Click on user** → Security credentials
+7. **Create access key** → CLI
+8. **Copy and save** Access Key ID and Secret Key
+
+---
+
+## 6. Stage 4: Kubernetes Configuration
+
+### 6.1 Create Kubernetes Namespace
+
+```bash
+# Create namespace for the application
+kubectl create namespace media-app
+
+# Verify namespace
+kubectl get namespaces
+```
+
+### 6.2 Deploy MongoDB to EKS
+
+```bash
+# Navigate to your project k8s directory
+cd ~/Compressorr/k8s
+
+# Create namespace first (if not created)
+kubectl apply -f namespace.yaml
+
+# Deploy MongoDB secret
+kubectl apply -f mongo/mongo-secret.yaml
+
+# Deploy MongoDB StatefulSet
+kubectl apply -f mongo/mongo-statefulset.yaml
+
+# Deploy MongoDB Service
+kubectl apply -f mongo/mongo-service.yaml
+
+# Verify MongoDB pods
+kubectl get pods -n media-app
+
+# Wait until MongoDB pod is Running
+kubectl wait --for=condition=ready pod -l app=mongodb -n media-app --timeout=300s
+```
+
+### 6.3 Deploy Backend to EKS
+
+```bash
+# Deploy backend deployment
+kubectl apply -f backend/backend-deployment.yaml
+
+# Deploy backend service
+kubectl apply -f backend/backend-service.yaml
+
+# Verify backend deployment
+kubectl get deployments -n media-app
+kubectl get pods -n media-app
+```
+
+### 6.4 Deploy Frontend to EKS
+
+```bash
+# Deploy frontend deployment
+kubectl apply -f frontend/frontend-deployment.yaml
+
+# Deploy frontend service
+kubectl apply -f frontend/frontend-service.yaml
+
+# Verify frontend deployment
+kubectl get deployments -n media-app
+kubectl get pods -n media-app
+```
+
+### 6.5 Verify All Deployments
+
+```bash
+# Check all resources in namespace
+kubectl get all -n media-app
+
+# Check pod logs (if needed)
+kubectl logs -f <pod-name> -n media-app
+
+# Get service endpoints
+kubectl get svc -n media-app
+```
+
+### 6.6 Access the Application
+
+```bash
+# Get LoadBalancer URL (if using LoadBalancer service type)
+kubectl get svc frontend -n media-app
+
+# The EXTERNAL-IP column will show the LoadBalancer URL
+# Access: http://<EXTERNAL-IP>
+```
+
+---
+
+## 7. Jenkins Installation & Configuration
+
+### 7.1 Install Jenkins
 
 ```bash
 # Add Jenkins repository
@@ -569,7 +587,7 @@ sudo systemctl enable jenkins
 sudo systemctl status jenkins
 ```
 
-### 6.2 Configure Jenkins User for Docker
+### 7.2 Configure Jenkins User for Docker
 
 ```bash
 # Add jenkins user to docker group
@@ -579,7 +597,7 @@ sudo usermod -aG docker jenkins
 sudo systemctl restart jenkins
 ```
 
-### 6.3 Get Jenkins Initial Admin Password
+### 7.3 Get Jenkins Initial Admin Password
 
 ```bash
 # Get initial admin password
@@ -588,13 +606,13 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 # Copy this password (you'll need it for setup)
 ```
 
-### 6.4 Access Jenkins Web Interface
+### 7.4 Access Jenkins Web Interface
 
 1. **Open browser:** http://&lt;YOUR-EC2-PUBLIC-IP&gt;:8080
 2. **Paste** the initial admin password
 3. **Click Continue**
 
-### 6.5 Jenkins Initial Setup
+### 7.5 Jenkins Initial Setup
 
 #### Install Suggested Plugins
 1. **Select:** Install suggested plugins
@@ -615,16 +633,18 @@ Click: Save and Finish
 Click: Start using Jenkins
 ```
 
-### 6.6 Install Required Jenkins Plugins
+### 7.6 Install Required Jenkins Plugins
 
 1. **Navigate to:** Dashboard → Manage Jenkins → Plugins
 2. **Click:** Available plugins
 3. **Search and select** the following plugins:
 
 #### Essential Plugins:
-- [ ] **SonarQube Scanner** (for SonarQube integration)
 - [ ] **Docker Pipeline** (for Docker operations in pipeline)
 - [ ] **Docker** (for Docker integration)
+- [ ] **Kubernetes** (for K8s deployment)
+- [ ] **Kubernetes CLI** (for kubectl commands)
+- [ ] **AWS Credentials** (for AWS authentication)
 - [ ] **Git** (should already be installed)
 - [ ] **Pipeline** (should already be installed)
 - [ ] **Credentials Binding** (should already be installed)
@@ -633,45 +653,7 @@ Click: Start using Jenkins
 5. **Check:** Restart Jenkins when installation is complete
 6. **Wait** for Jenkins to restart
 
-### 6.7 Configure SonarQube in Jenkins
-
-#### Add SonarQube Server
-
-1. **Navigate to:** Manage Jenkins → System
-2. **Scroll to:** SonarQube servers
-3. **Click:** Add SonarQube
-4. **Configure:**
-   ```
-   Name: SonarQube
-   Server URL: http://localhost:9000
-   Server authentication token: [Select from dropdown - we'll create this next]
-   ```
-
-#### Create SonarQube Credentials
-
-1. **Click:** Add → Jenkins
-2. **Kind:** Secret text
-3. **Secret:** Paste your SonarQube token (from step 4.11)
-4. **ID:** `sonarqube-token`
-5. **Description:** `SonarQube Authentication Token`
-6. **Click:** Add
-7. **Select** the newly created credential
-8. **Click:** Save
-
-#### Configure SonarQube Scanner
-
-1. **Navigate to:** Manage Jenkins → Tools
-2. **Scroll to:** SonarQube Scanner installations
-3. **Click:** Add SonarQube Scanner
-4. **Configure:**
-   ```
-   Name: SonarQube Scanner
-   Install automatically: [Check]
-   Version: [Select latest version]
-   ```
-5. **Click:** Save
-
-### 6.8 Configure Docker Credentials in Jenkins
+### 7.7 Configure Docker Credentials in Jenkins
 
 #### Add DockerHub Credentials
 
@@ -689,7 +671,38 @@ Click: Start using Jenkins
    ```
 5. **Click:** Create
 
-### 6.9 Configure Git in Jenkins
+### 7.8 Configure AWS Credentials in Jenkins
+
+#### Add AWS Credentials
+
+1. **Navigate to:** Manage Jenkins → Credentials
+2. **Click:** (global) domain
+3. **Click:** Add Credentials
+4. **Configure:**
+   ```
+   Kind: AWS Credentials
+   Scope: Global
+   Access Key ID: <jenkins-eks-user-access-key>
+   Secret Access Key: <jenkins-eks-user-secret-key>
+   ID: aws-credentials
+   Description: AWS EKS Access Credentials
+   ```
+5. **Click:** Create
+
+### 7.9 Install kubectl and AWS CLI on Jenkins Server
+
+```bash
+# These should already be installed from earlier steps
+# Verify they are accessible by jenkins user
+sudo -u jenkins kubectl version --client
+sudo -u jenkins aws --version
+
+# Configure AWS for jenkins user
+sudo -u jenkins aws configure
+# Enter the same credentials as before
+```
+
+### 7.10 Configure Git in Jenkins
 
 #### Install Git on Jenkins
 
@@ -714,9 +727,9 @@ sudo ln -s /usr/bin/git /usr/local/bin/git
 
 ---
 
-## 7. Pipeline Configuration
+## 8. Pipeline Configuration
 
-### 7.1 Create Jenkins Pipeline Job
+### 8.1 Create Jenkins Pipeline Job
 
 1. **Navigate to:** Jenkins Dashboard
 2. **Click:** New Item
@@ -724,10 +737,10 @@ sudo ln -s /usr/bin/git /usr/local/bin/git
 4. **Select:** Pipeline
 5. **Click:** OK
 
-### 7.2 Configure Pipeline
+### 8.2 Configure Pipeline
 
 #### General Section:
-- **Description:** `3-Stage CI/CD Pipeline: Git → SonarQube → Docker & DockerHub`
+- **Description:** `4-Stage CI/CD Pipeline: Git → Docker & DockerHub → EKS Deployment → Health Check`
 - **Check:** GitHub project (if using GitHub)
 - **Project URL:** `https://github.com/yourusername/Compressorr`
 
@@ -752,9 +765,9 @@ sudo ln -s /usr/bin/git /usr/local/bin/git
 
 **Click:** Save
 
-### 7.3 Verify Jenkinsfile in Repository
+### 8.3 Verify Jenkinsfile in Repository
 
-Ensure your Jenkinsfile exists in the repository root:
+Ensure your Jenkinsfile exists in the repository root with the following structure:
 
 ```groovy
 pipeline {
@@ -764,12 +777,16 @@ pipeline {
     DOCKERHUB_USERNAME = 'saikiranasamwar4'
     DOCKERHUB_BACKEND  = "${DOCKERHUB_USERNAME}/compressor-backend"
     DOCKERHUB_FRONTEND = "${DOCKERHUB_USERNAME}/compressor-frontend"
+    AWS_REGION  = 'us-east-1'
+    EKS_CLUSTER = 'media-compressor-cluster'
+    NAMESPACE   = 'media-app'
   }
 
   stages {
     // Stage 1: Git Checkout
-    // Stage 2: SonarQube Analysis
-    // Stage 3: Docker Build & Push
+    // Stage 2: Docker Build & Push
+    // Stage 3: EKS Deployment
+    // Stage 4: Health Check
   }
 
   post {
@@ -782,16 +799,16 @@ pipeline {
 
 ---
 
-## 8. Testing the Pipeline
+## 9. Testing the Pipeline
 
-### 8.1 Manual Build Test
+### 9.1 Manual Build Test
 
 1. **Navigate to:** Pipeline job → `Compressorr-CICD-Pipeline`
 2. **Click:** Build Now
 3. **Monitor:** Build progress in Build History
 4. **Click:** On the build number → Console Output
 
-### 8.2 Expected Pipeline Stages
+### 9.2 Expected Pipeline Stages
 
 You should see the following stages execute:
 
@@ -800,27 +817,33 @@ You should see the following stages execute:
    └─ Cloning repository
    └─ Checking out branch
 
-✅ Stage 2: SonarQube Analysis
-   └─ Installing npm dependencies
-   └─ Running SonarQube scanner
-   └─ Waiting for Quality Gate
-   └─ Quality Gate: PASSED
-
-✅ Stage 3: Build & Push Docker Images
+✅ Stage 2: Build & Push Docker Images
    └─ Docker login to DockerHub
    └─ Building backend image
    └─ Pushing backend image (build number + latest)
    └─ Building frontend image
    └─ Pushing frontend image (build number + latest)
    └─ Docker logout
+
+✅ Stage 3: Deploy to Amazon EKS
+   └─ Updating kubeconfig for EKS
+   └─ Updating backend deployment
+   └─ Updating frontend deployment
+   └─ Waiting for rollout completion
+
+✅ Stage 4: Post-Deployment Health Check
+   └─ Checking pod status
+   └─ Checking service status
 ```
 
-### 8.3 Verify Build Success
+### 9.3 Verify Build Success
 
 #### Check Jenkins Console Output:
 ```
 ✅ Pipeline executed successfully
 ✅ All images pushed to DockerHub
+✅ Deployment to EKS completed
+✅ Health checks passed
 ```
 
 #### Verify on DockerHub:
@@ -832,13 +855,31 @@ You should see the following stages execute:
    - `compressor-frontend:latest`
    - `compressor-frontend:1` (build number)
 
-#### Check SonarQube Results:
-1. **Access:** http://&lt;YOUR-EC2-IP&gt;:9000
-2. **Login** and navigate to Projects
-3. **Click:** compressorr
-4. **Review:** Code quality metrics, bugs, vulnerabilities
+#### Check EKS Deployment:
+```bash
+# Check pods
+kubectl get pods -n media-app
 
-### 8.4 Test Automatic Triggers (Optional)
+# Check deployments
+kubectl get deployments -n media-app
+
+# Check services
+kubectl get svc -n media-app
+
+# Check pod logs
+kubectl logs -f deployment/backend -n media-app
+```
+
+#### Access the Application:
+```bash
+# Get frontend service URL
+kubectl get svc frontend -n media-app
+
+# Access the application
+# http://<LOAD-BALANCER-URL>
+```
+
+### 9.4 Test Automatic Triggers (Optional)
 
 #### Setup GitHub Webhook:
 
@@ -863,9 +904,9 @@ git push origin main
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
-### 9.1 Jenkins Issues
+### 10.1 Jenkins Issues
 
 #### Jenkins not starting:
 ```bash
@@ -891,46 +932,7 @@ sudo systemctl restart jenkins
 sudo -u jenkins docker ps
 ```
 
-### 9.2 SonarQube Issues
-
-#### SonarQube not starting:
-```bash
-# Check logs
-sudo tail -f /opt/sonarqube/logs/sonar.log
-sudo tail -f /opt/sonarqube/logs/web.log
-
-# Check system limits
-ulimit -a
-
-# Restart SonarQube
-sudo systemctl restart sonarqube
-```
-
-#### Database connection error:
-```bash
-# Check PostgreSQL
-sudo systemctl status postgresql
-
-# Test connection
-psql -U sonarqube -d sonarqube -h localhost -W
-
-# Check pg_hba.conf authentication
-sudo vim /var/lib/pgsql/data/pg_hba.conf
-```
-
-#### Quality Gate timeout:
-```yaml
-# In Jenkinsfile, increase timeout:
-stage('Quality Gate') {
-  steps {
-    timeout(time: 10, unit: 'MINUTES') {  # Increased from 5 to 10
-      waitForQualityGate abortPipeline: true
-    }
-  }
-}
-```
-
-### 9.3 Docker Issues
+### 10.2 Docker Issues
 
 #### Docker daemon not running:
 ```bash
@@ -969,7 +971,69 @@ docker system prune -a --volumes -f
 docker image prune -a -f
 ```
 
-### 9.4 Git Issues
+### 10.3 EKS & Kubernetes Issues
+
+#### Cannot connect to EKS cluster:
+```bash
+# Update kubeconfig
+aws eks update-kubeconfig --name media-compressor-cluster --region us-east-1
+
+# Verify AWS credentials
+aws sts get-caller-identity
+
+# Check cluster status
+aws eks describe-cluster --name media-compressor-cluster --region us-east-1
+```
+
+#### Pods not starting:
+```bash
+# Describe pod to see error
+kubectl describe pod <pod-name> -n media-app
+
+# Check pod logs
+kubectl logs <pod-name> -n media-app
+
+# Common issues:
+# - ImagePullBackOff: Check image name and DockerHub credentials
+# - CrashLoopBackOff: Check application logs
+# - Pending: Check node resources (kubectl describe nodes)
+```
+
+#### Image pull errors:
+```bash
+# Verify image exists on DockerHub
+# Verify image name in deployment YAML matches DockerHub repo
+
+# For private repos, create image pull secret:
+kubectl create secret docker-registry dockerhub-secret \
+  --docker-server=https://index.docker.io/v1/ \
+  --docker-username=<username> \
+  --docker-password=<token> \
+  -n media-app
+
+# Add to deployment spec:
+# imagePullSecrets:
+#   - name: dockerhub-secret
+```
+
+#### Service LoadBalancer stuck in pending:
+```bash
+# Check service
+kubectl describe svc frontend -n media-app
+
+# Verify AWS Load Balancer Controller is installed
+# Or use NodePort/ClusterIP instead of LoadBalancer
+
+# To use NodePort:
+kubectl patch svc frontend -n media-app -p '{"spec":{"type":"NodePort"}}'
+
+# Get node IP and NodePort
+kubectl get nodes -o wide
+kubectl get svc frontend -n media-app
+# Access: http://<NODE-EXTERNAL-IP>:<NODE-PORT>
+```
+
+### 10.4 Git Issues
 
 #### Authentication failed:
 ```bash
@@ -994,95 +1058,111 @@ ls -la Jenkinsfile
 git remote -v
 ```
 
-### 9.5 Common Pipeline Errors
+### 10.5 Common Pipeline Errors
 
-#### SonarQube scanner not found:
+#### AWS credentials error:
 ```bash
-# Install manually and add to PATH
-export PATH=$PATH:/opt/sonar-scanner/bin
+# Verify credentials in Jenkins
+# Manage Jenkins → Credentials → aws-credentials
 
-# Or in Jenkins → Manage Jenkins → Tools → SonarQube Scanner
-# Set installation directory: /opt/sonar-scanner
+# Test AWS CLI access
+aws eks describe-cluster --name media-compressor-cluster --region us-east-1
+
+# Verify IAM user has proper permissions
 ```
 
-#### npm ci fails:
+#### kubectl command not found:
 ```bash
-# Install Node.js on Jenkins server
-sudo yum install nodejs npm -y
+# Install kubectl (if not installed)
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+sudo mv kubectl /usr/local/bin/
 
-# Verify
-node --version
-npm --version
+# Verify jenkins user can access kubectl
+sudo -u jenkins kubectl version --client
 ```
 
-#### Build fails with "permission denied":
+#### Deployment rollout timeout:
 ```bash
-# Check file permissions
-ls -la Dockerfiles/
+# Check pod status
+kubectl get pods -n media-app
 
-# Ensure Docker socket is accessible
-sudo chmod 666 /var/run/docker.sock
+# Increase timeout in Jenkinsfile:
+kubectl -n media-app rollout status deployment/backend --timeout=10m
+
+# Or remove rollout wait completely for faster pipeline
 ```
 
 ---
 
-## 10. Verification Checklist
+## 11. Verification Checklist
 
 ### ✅ Pre-Pipeline Checklist
 
 - [ ] EC2 instance running and accessible
 - [ ] Security group configured correctly
 - [ ] Git installed and configured
-- [ ] Java 17 installed
-- [ ] SonarQube running on port 9000
 - [ ] Docker installed and running
 - [ ] DockerHub account created
+- [ ] EKS cluster created and running
+- [ ] kubectl installed and configured
+- [ ] AWS CLI installed and configured
+- [ ] Kubernetes resources deployed (namespace, mongo, etc.)
 - [ ] Jenkins running on port 8080
 - [ ] All required Jenkins plugins installed
-- [ ] SonarQube server configured in Jenkins
 - [ ] DockerHub credentials added to Jenkins
+- [ ] AWS credentials added to Jenkins
 - [ ] Jenkinsfile present in repository
 
 ### ✅ Post-Pipeline Checklist
 
 - [ ] Build completed successfully
-- [ ] All 3 stages executed (Git, SonarQube, Docker)
-- [ ] Quality Gate passed
+- [ ] All 4 stages executed (Git, Docker, EKS, Health Check)
 - [ ] Docker images pushed to DockerHub
 - [ ] Images tagged with build number and latest
+- [ ] Pods deployed and running in EKS
+- [ ] Services accessible
 - [ ] No errors in Jenkins console output
+- [ ] Application accessible via LoadBalancer/NodePort
 
 ---
 
-## 11. Important URLs & Credentials
+## 12. Important URLs & Credentials
 
 ### Services Access
 
 | Service      | URL                                          | Default Credentials      |
 |--------------|----------------------------------------------|--------------------------|
 | Jenkins      | http://&lt;EC2-IP&gt;:8080                   | admin / &lt;your-password&gt; |
-| SonarQube    | http://&lt;EC2-IP&gt;:9000                   | admin / &lt;new-password&gt;  |
 | DockerHub    | https://hub.docker.com                       | &lt;your-account&gt;          |
+| EKS Console  | https://console.aws.amazon.com/eks           | AWS credentials          |
 
 ### Jenkins Credential IDs
 
 | ID                     | Type              | Usage                    |
 |------------------------|-------------------|--------------------------|
 | dockerhub-credentials  | Username/Password | Docker login             |
-| sonarqube-token        | Secret text       | SonarQube authentication |
+| aws-credentials        | AWS Credentials   | EKS deployment           |
 
 ### Important Paths
 
 | Service      | Path                              |
 |--------------|-----------------------------------|
 | Jenkins      | /var/lib/jenkins                  |
-| SonarQube    | /opt/sonarqube                    |
-| Sonar Scanner| /opt/sonar-scanner                |
 | Docker       | /var/lib/docker                   |
+| kubectl config| ~/.kube/config                   |
+
+### AWS Resources
+
+| Resource     | Name                              |
+|--------------|-----------------------------------|
+| EKS Cluster  | media-compressor-cluster          |
+| Namespace    | media-app                         |
+| Region       | us-east-1                         |
 
 ---
 
-## 12. Maintenance Commands
+## 13. Maintenance Commands
 
 ### Jenkins
 
@@ -1097,21 +1177,6 @@ sudo journalctl -u jenkins -f
 
 # Backup Jenkins
 sudo tar -czf jenkins-backup-$(date +%F).tar.gz /var/lib/jenkins
-```
-
-### SonarQube
-
-```bash
-# Start/Stop/Restart
-sudo systemctl start sonarqube
-sudo systemctl stop sonarqube
-sudo systemctl restart sonarqube
-
-# View logs
-sudo tail -f /opt/sonarqube/logs/sonar.log
-
-# Backup database
-pg_dump -U sonarqube sonarqube > sonarqube-backup-$(date +%F).sql
 ```
 
 ### Docker
@@ -1130,36 +1195,89 @@ docker ps -a
 docker container prune -f
 ```
 
+### Kubernetes
+
+```bash
+# Get all resources
+kubectl get all -n media-app
+
+# Delete and recreate deployment
+kubectl delete deployment backend -n media-app
+kubectl apply -f k8s/backend/backend-deployment.yaml
+
+# Restart deployment
+kubectl rollout restart deployment/backend -n media-app
+
+# Scale deployment
+kubectl scale deployment/backend --replicas=3 -n media-app
+
+# View logs
+kubectl logs -f deployment/backend -n media-app
+```
+
+### EKS Cluster
+
+```bash
+# Update kubeconfig
+aws eks update-kubeconfig --name media-compressor-cluster --region us-east-1
+
+# Get cluster info
+kubectl cluster-info
+
+# Get nodes
+kubectl get nodes
+
+# Drain node (for maintenance)
+kubectl drain <node-name> --ignore-daemonsets
+
+# Delete cluster (CAUTION!)
+eksctl delete cluster --name media-compressor-cluster --region us-east-1
+```
+
 ---
 
 ## 📝 Summary
 
-You now have a complete 3-stage CI/CD pipeline:
+You now have a complete 4-stage CI/CD pipeline:
 
 1. **Git** - Automatically checks out code from repository
-2. **SonarQube** - Analyzes code quality and enforces quality gates
-3. **Docker & DockerHub** - Builds and pushes container images
+2. **Docker & DockerHub** - Builds and pushes container images
+3. **EKS Deployment** - Deploys to Amazon EKS cluster
+4. **Health Check** - Verifies deployment health
 
 Every push to your repository will trigger:
-- ✅ Code quality analysis
-- ✅ Automated testing
+- ✅ Automated code checkout
 - ✅ Docker image creation
 - ✅ Image deployment to DockerHub
+- ✅ Kubernetes deployment to EKS
+- ✅ Health verification
 
 ---
 
 ## 🎯 Next Steps
 
-After mastering these 3 stages, you can add:
-- Stage 4: Unit Testing
-- Stage 5: Integration Testing
-- Stage 6: Security Scanning (Trivy, OWASP)
-- Stage 7: Kubernetes Deployment
-- Stage 8: Monitoring & Alerting
+After mastering these 4 stages, you can add:
+- Code quality analysis (SonarQube)
+- Unit Testing
+- Integration Testing  
+- Security Scanning (Trivy, OWASP)
+- Advanced monitoring (Prometheus, Grafana)
+- Auto-scaling configurations
+- Blue-Green deployments
 
 ---
 
-**Document Version:** 1.0  
+## 📚 Additional Resources
+
+- **Jenkins Documentation:** https://www.jenkins.io/doc/
+- **Docker Documentation:** https://docs.docker.com/
+- **Kubernetes Documentation:** https://kubernetes.io/docs/
+- **EKS Documentation:** https://docs.aws.amazon.com/eks/
+- **eksctl Documentation:** https://eksctl.io/
+
+---
+
+**Document Version:** 2.0  
 **Last Updated:** December 22, 2025  
 **Author:** CI/CD Team  
 **Status:** Production Ready

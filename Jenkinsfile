@@ -71,6 +71,63 @@ pipeline {
       }
     }
 
+    // ============================================
+    // STAGE 3: EKS DEPLOYMENT - Deploy to Amazon EKS
+    // ============================================
+    stage('Deploy to Amazon EKS') {
+      steps {
+        echo '☸️ Deploying to Amazon EKS cluster...'
+        
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-credentials'
+        ]]) {
+          sh """
+            # Update kubeconfig for EKS cluster
+            aws eks update-kubeconfig \
+              --name ${EKS_CLUSTER} \
+              --region ${AWS_REGION}
+
+            # Update backend deployment with new image
+            kubectl -n ${NAMESPACE} set image deployment/backend \
+              backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
+
+            # Update frontend deployment with new image
+            kubectl -n ${NAMESPACE} set image deployment/frontend \
+              frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
+
+            # Wait for rollout to complete
+            kubectl -n ${NAMESPACE} rollout status deployment/backend
+            kubectl -n ${NAMESPACE} rollout status deployment/frontend
+          """
+        }
+        
+        echo '✅ Deployment to EKS completed successfully'
+      }
+    }
+
+    // ============================================
+    // STAGE 4: HEALTH CHECK - Verify Deployment
+    // ============================================
+    stage('Post-Deployment Health Check') {
+      steps {
+        echo '🏥 Running post-deployment health checks...'
+        
+        sh """
+          echo "Checking Backend Status..."
+          kubectl -n ${NAMESPACE} get pods -l app=backend
+          
+          echo "Checking Frontend Status..."
+          kubectl -n ${NAMESPACE} get pods -l app=frontend
+          
+          echo "Checking Services..."
+          kubectl -n ${NAMESPACE} get svc
+        """
+        
+        echo '✅ Health check completed'
+      }
+    }
+
   }
 
   post {
