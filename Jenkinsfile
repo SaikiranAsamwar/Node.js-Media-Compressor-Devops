@@ -13,45 +13,58 @@ pipeline {
 
   stages {
 
-    stage('Checkout Code') {
+    // ============================================
+    // STAGE 1: GIT - Checkout Source Code
+    // ============================================
+    stage('Git Checkout') {
       steps {
+        echo '🔄 Checking out code from repository...'
         checkout scm
+        echo '✅ Code checkout completed'
       }
     }
 
-    stage('Backend Build') {
+    // ============================================
+    // STAGE 2: SONARQUBE - Code Quality Analysis
+    // ============================================
+    stage('SonarQube Analysis') {
       steps {
+        echo '🔍 Running SonarQube code analysis...'
+        
+        // Install dependencies for analysis
         dir('backend') {
           sh 'npm ci'
-          echo 'No backend tests configured. Skipping test step.'
         }
-      }
-    }
-
-    stage('SonarQube Scan - Backend') {
-      steps {
+        
+        // Run SonarQube scanner
         withSonarQubeEnv('SonarQube') {
-          dir('backend') {
-            sh '''
-              sonar-scanner \
-              -Dsonar.projectKey=compressor-backend \
-              -Dsonar.sources=.
-            '''
-          }
+          sh '''
+            sonar-scanner
+          '''
         }
+        
+        echo '✅ SonarQube analysis completed'
       }
     }
 
     stage('Quality Gate') {
       steps {
+        echo '⏳ Waiting for Quality Gate results...'
         timeout(time: 5, unit: 'MINUTES') {
           waitForQualityGate abortPipeline: true
         }
+        echo '✅ Quality Gate passed'
       }
     }
 
-    stage('Build & Push Docker Images (Docker Hub)') {
+    // ============================================
+    // STAGE 3: DOCKER - Build & Push to DockerHub
+    // ============================================
+    stage('Build & Push Docker Images') {
       steps {
+        echo '🐳 Building and pushing Docker images...'
+        
+        // Login to DockerHub
         withCredentials([
           usernamePassword(
             credentialsId: 'dockerhub-credentials',
@@ -62,6 +75,8 @@ pipeline {
           sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
         }
 
+        // Build and push backend image
+        echo '📦 Building backend Docker image...'
         dir('backend') {
           sh """
             docker build -f ../Dockerfiles/backend.Dockerfile \
@@ -71,7 +86,10 @@ pipeline {
             docker push ${DOCKERHUB_BACKEND}:latest
           """
         }
+        echo '✅ Backend image pushed to DockerHub'
 
+        // Build and push frontend image
+        echo '📦 Building frontend Docker image...'
         dir('.') {
           sh """
             docker build -f Dockerfiles/frontend.Dockerfile \
@@ -81,42 +99,11 @@ pipeline {
             docker push ${DOCKERHUB_FRONTEND}:latest
           """
         }
+        echo '✅ Frontend image pushed to DockerHub'
+        echo '🎉 All Docker images built and pushed successfully'
       }
     }
 
-    stage('Deploy to Amazon EKS') {
-      steps {
-        withCredentials([[
-          $class: 'AmazonWebServicesCredentialsBinding',
-          credentialsId: 'aws-credentials'
-        ]]) {
-          sh """
-            aws eks update-kubeconfig \
-              --name ${EKS_CLUSTER} \
-              --region ${AWS_REGION}
-
-            kubectl -n ${NAMESPACE} set image deployment/backend \
-              backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
-
-            kubectl -n ${NAMESPACE} set image deployment/frontend \
-              frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
-
-            kubectl -n ${NAMESPACE} rollout status deployment/backend
-            kubectl -n ${NAMESPACE} rollout status deployment/frontend
-          """
-        }
-      }
-    }
-
-    stage('Post-Deployment Health Check') {
-      steps {
-        sh '''
-          echo "Checking Backend Health..."
-          kubectl -n media-app get pods
-          kubectl -n media-app get svc
-        '''
-      }
-    }
   }
 
   post {
