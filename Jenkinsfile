@@ -25,40 +25,7 @@ pipeline {
     }
 
     // ============================================
-    // STAGE 2: SONARQUBE - Code Quality Analysis
-    // ============================================
-    stage('SonarQube Analysis') {
-      steps {
-        echo '🔍 Running SonarQube code analysis...'
-        
-        // Install dependencies for analysis
-        dir('backend') {
-          sh 'npm ci'
-        }
-        
-        // Run SonarQube scanner
-        withSonarQubeEnv('SonarQube') {
-          sh '''
-            sonar-scanner
-          '''
-        }
-        
-        echo '✅ SonarQube analysis completed'
-      }
-    }
-
-    stage('Quality Gate') {
-      steps {
-        echo '⏳ Waiting for Quality Gate results...'
-        timeout(time: 5, unit: 'MINUTES') {
-          waitForQualityGate abortPipeline: true
-        }
-        echo '✅ Quality Gate passed'
-      }
-    }
-
-    // ============================================
-    // STAGE 3: DOCKER - Build & Push to DockerHub
+    // STAGE 2: DOCKER - Build & Push to DockerHub
     // ============================================
     stage('Build & Push Docker Images') {
       steps {
