@@ -1,10 +1,3 @@
-Om namoh bhagwate vasudevay namah 🕉
-
-Got it 👍
-Below is a **clean, drop-in extension** to your existing **MD file**.
-You can **paste this after Section 2 (Server Initial Configuration)** or add it as a **new Section: “Prerequisite Tool Installation”**.
-
-I’ve kept it **production-grade, copy-paste ready, and CI/CD aligned**.
 
 ---
 
