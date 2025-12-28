@@ -99,7 +99,7 @@ pipeline {
               -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} \
               -t ${DOCKERHUB_FRONTEND}:latest .
             docker push ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
-            // docker push ${DOCKERHUB_FRONTEND}:latest
+            docker push ${DOCKERHUB_FRONTEND}:latest
           """
         }
         echo '✅ Frontend image pushed to DockerHub'
