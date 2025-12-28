@@ -350,6 +350,51 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 3. Access Key ID: Your AWS access key
 4. Secret Access Key: Your AWS secret key
 
+**Add GitHub Credentials (for Private Repositories):**
+1. Add Credentials → Username with password (or Personal Access Token)
+2. ID: `github-credentials`
+3. Username: Your GitHub username
+4. Password: GitHub Personal Access Token
+   - Generate token at: https://github.com/settings/tokens
+   - Required scopes: `repo`, `admin:repo_hook`
+
+**Add SonarQube Token:**
+1. First, generate token in SonarQube UI:
+   - Login to SonarQube: `http://your-ec2-public-ip:9000`
+   - My Account → Security → Generate Token
+   - Name: `jenkins`
+   - Copy the generated token
+2. Back in Jenkins → Add Credentials → Secret text
+3. ID: `sonarqube-token`
+4. Secret: Paste the SonarQube token
+
+### 10.5 Configure GitHub Webhook (for Auto-Trigger)
+
+**In GitHub Repository:**
+1. Go to your repository → Settings → Webhooks
+2. Click **Add webhook**
+3. Payload URL: `http://your-ec2-public-ip:8080/github-webhook/`
+4. Content type: `application/json`
+5. Select events: **Just the push event**
+6. Active: ✓ Check
+7. Click **Add webhook**
+
+**In Jenkins Job Configuration:**
+1. Open your pipeline job
+2. Build Triggers → Check **GitHub hook trigger for GITScm polling**
+3. Save
+
+### 10.6 Configure SonarQube Integration
+
+**In Jenkins:**
+1. Manage Jenkins → Configure System
+2. Scroll to **SonarQube servers**
+3. Click **Add SonarQube**
+4. Name: `SonarQube`
+5. Server URL: `http://localhost:9000`
+6. Server authentication token: Select `sonarqube-token` from dropdown
+7. Click **Save**
+
 ---
 
 ## Step 11: Install & Configure SonarQube
