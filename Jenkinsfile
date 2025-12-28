@@ -25,7 +25,43 @@ pipeline {
     }
 
     // ============================================
-    // STAGE 2: DOCKER - Build & Push to DockerHub
+    // STAGE 2: SONARQUBE - Code Analysis
+    // ============================================
+    stage('SonarQube Analysis') {
+      steps {
+        echo '🔍 Running SonarQube code analysis...'
+        
+        withSonarQubeEnv('SonarQube') {
+          sh """
+            sonar-scanner \
+              -Dsonar.projectKey=compressorr \
+              -Dsonar.sources=. \
+              -Dsonar.host.url=${env.SONAR_HOST_URL} \
+              -Dsonar.login=${env.SONAR_AUTH_TOKEN}
+          """
+        }
+        
+        echo '✅ SonarQube analysis completed'
+      }
+    }
+
+    // ============================================
+    // STAGE 3: SONARQUBE - Quality Gate Check
+    // ============================================
+    stage('SonarQube Quality Gate') {
+      steps {
+        echo '🚦 Checking SonarQube Quality Gate...'
+        
+        timeout(time: 5, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
+        }
+        
+        echo '✅ Quality Gate passed'
+      }
+    }
+
+    // ============================================
+    // STAGE 4: DOCKER - Build & Push to DockerHub
     // ============================================
     stage('Build & Push Docker Images') {
       steps {
@@ -72,7 +108,7 @@ pipeline {
     }
 
     // ============================================
-    // STAGE 3: EKS DEPLOYMENT - Deploy to Amazon EKS
+    // STAGE 5: EKS DEPLOYMENT - Deploy to Amazon EKS
     // ============================================
     stage('Deploy to Amazon EKS') {
       steps {
@@ -107,7 +143,7 @@ pipeline {
     }
 
     // ============================================
-    // STAGE 4: HEALTH CHECK - Verify Deployment
+    // STAGE 6: HEALTH CHECK - Verify Deployment
     // ============================================
     stage('Post-Deployment Health Check') {
       steps {
