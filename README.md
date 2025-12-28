@@ -983,37 +983,336 @@ eksctl delete cluster --name compressorr-cluster --region us-east-1
 
 ## Step 17: Setup CI/CD Pipeline
 
-### 17.1 Create Jenkins Pipeline
+### 17.1 Understanding the Jenkinsfile
 
-1. Open Jenkins UI: `http://your-ec2-public-ip:8080`
-2. Click **New Item**
-3. Name: `Compressorr-Deploy`
-4. Select **Pipeline**
-5. Click **OK**
+The project includes a `Jenkinsfile` that defines the complete CI/CD pipeline with the following stages:
 
-### 15.2 Configure Pipeline
+**Pipeline Stages:**
+1. **Git Checkout** - Clone source code from repository
+2. **SonarQube Analysis** (Optional) - Code quality scan
+3. **Build Docker Images** - Build backend and frontend containers
+4. **Push to DockerHub** - Upload images to container registry
+5. **Deploy to EKS** - Update Kubernetes deployments
 
-1. **Pipeline** section:
-   - Definition: **Pipeline script from SCM**
-   - SCM: **Git**
-   - Repository URL: Your repository URL
-   - Credentials: Add if private repo
-   - Branch: `*/main`
-   - Script Path: `Jenkinsfile`
-2. Click **Save**
+**Prerequisites:**
+- All credentials configured (DockerHub, AWS, GitHub, SonarQube)
+- GitHub webhook configured for auto-trigger
+- EKS cluster running and accessible
 
-### 15.3 Run Pipeline
+### 17.2 Review Jenkinsfile Configuration
+
+Before creating the pipeline, review your `Jenkinsfile`:
 
 ```bash
-# Trigger build from Jenkins UI by clicking "Build Now"
-# Or push code to GitHub to trigger automatically
+# Open and review the Jenkinsfile
+cat Jenkinsfile
 ```
 
-### 15.4 Monitor Pipeline Execution
+**Key Environment Variables in Jenkinsfile:**
+```groovy
+environment {
+    DOCKERHUB_USERNAME = 'saikiranasamwar4'  // Update with your username
+    DOCKERHUB_BACKEND  = "${DOCKERHUB_USERNAME}/compressor-backend"
+    DOCKERHUB_FRONTEND = "${DOCKERHUB_USERNAME}/compressor-frontend"
+    
+    AWS_REGION  = 'us-east-1'  // Your AWS region
+    EKS_CLUSTER = 'compressorr-cluster'  // Your EKS cluster name
+    NAMESPACE   = 'media-app'  // Kubernetes namespace
+}
+```
 
-1. Click on build number (#1, #2, etc.)
-2. Click **Console Output** to view logs
-3. Monitor stages: Checkout → Build → Push → Deploy
+**Update these values** if needed to match your configuration.
+
+### 17.3 Create Jenkins Pipeline Job
+
+1. Open Jenkins UI: `http://your-ec2-public-ip:8080`
+2. Click **New Item** on the left sidebar
+3. Enter name: `Compressorr-Deploy`
+4. Select **Pipeline** (scroll down if needed)
+5. Click **OK**
+
+### 17.4 Configure General Settings
+
+**In the pipeline configuration page:**
+
+1. **Description:** (Optional)
+   ```
+   CI/CD pipeline for Compressorr application - builds Docker images and deploys to EKS
+   ```
+
+2. **Discard old builds:** (Recommended)
+   - Check this option
+   - Strategy: Log Rotation
+   - Max # of builds to keep: `10`
+
+### 17.5 Configure Build Triggers
+
+**Enable GitHub Webhook:**
+1. Under **Build Triggers** section
+2. Check ☑ **GitHub hook trigger for GITScm polling**
+3. This allows automatic builds when you push to GitHub
+
+**Poll SCM (Alternative):**
+- If webhook doesn't work, use: `H/5 * * * *` (checks every 5 minutes)
+
+### 17.6 Configure Pipeline Definition
+
+**Pipeline Section:**
+
+1. **Definition:** Select **Pipeline script from SCM**
+
+2. **SCM:** Select **Git**
+
+3. **Repository URL:** Enter your GitHub repository URL
+   ```
+   https://github.com/your-username/Compressorr.git
+   ```
+
+4. **Credentials:**
+   - If public repo: Select **- none -**
+   - If private repo: Select **github-credentials** (configured in Step 10.4)
+
+5. **Branches to build:**
+   - Branch Specifier: `*/main`
+   - Or use `*/master` if that's your default branch
+
+6. **Script Path:** `Jenkinsfile`
+   - This tells Jenkins where to find the pipeline script
+
+7. **Lightweight checkout:** ☑ Check this (faster checkout)
+
+### 17.7 Add Pipeline Parameters (Optional)
+
+For more control, add build parameters:
+
+1. Check ☑ **This project is parameterized**
+2. Add parameters:
+
+**String Parameter 1:**
+- Name: `DOCKER_TAG`
+- Default Value: `latest`
+- Description: `Docker image tag to build and deploy`
+
+**Choice Parameter:**
+- Name: `DEPLOY_ENV`
+- Choices: `production`, `staging`, `dev`
+- Description: `Target environment`
+
+**Boolean Parameter:**
+- Name: `RUN_SONAR`
+- Default: `true`
+- Description: `Run SonarQube code analysis`
+
+### 17.8 Save and Verify Configuration
+
+1. Click **Save** at the bottom
+2. You'll be redirected to the pipeline dashboard
+3. Verify all settings are correct
+
+### 17.9 Run the Pipeline (First Build)
+
+**Trigger Manual Build:**
+
+1. Click **Build Now** on the left sidebar
+2. A build will appear under **Build History**
+3. Click on **#1** (build number)
+4. Click **Console Output** to view real-time logs
+
+**Expected Pipeline Flow:**
+```
+Started by user admin
+[Pipeline] Start
+[Pipeline] node
+[Pipeline] stage (Git Checkout)
+  ✓ Checking out code from repository...
+[Pipeline] stage (SonarQube Analysis)
+  ✓ Running code quality scan...
+[Pipeline] stage (Build & Push Docker Images)
+  ✓ Building backend Docker image...
+  ✓ Building frontend Docker image...
+  ✓ Pushing to DockerHub...
+[Pipeline] stage (Deploy to Amazon EKS)
+  ✓ Updating EKS deployments...
+  ✓ Waiting for rollout...
+[Pipeline] End
+SUCCESS - Build completed in 8m 32s
+```
+
+### 17.10 Monitor Pipeline Execution
+
+**During Build:**
+- Watch **Console Output** for real-time progress
+- Each stage shows success ✓ or failure ✗
+- Build progress bar shows overall completion
+
+**After Build:**
+1. **Status Indicator:**
+   - ☀️ Blue/Green = Success
+   - ⛈️ Red = Failure
+   - ⚠️ Yellow = Unstable
+
+2. **Check Stage View:**
+   - Click on the build number
+   - View graphical stage breakdown
+   - See time taken for each stage
+
+3. **Review Logs:**
+   - Scroll through console output
+   - Look for errors or warnings
+   - Verify image tags and deployment status
+
+### 17.11 Verify Deployment Success
+
+**After successful pipeline run:**
+
+```bash
+# SSH to your EC2 instance
+ssh -i your-key.pem ec2-user@your-ec2-ip
+
+# Check EKS deployments
+kubectl get deployments -n media-app
+
+# Check if new images are deployed
+kubectl describe deployment backend -n media-app | grep Image
+
+# Check pod status
+kubectl get pods -n media-app
+
+# View recent pod logs
+kubectl logs -n media-app deployment/backend --tail=50
+```
+
+**Expected Output:**
+```
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+backend    2/2     2            2           5m
+frontend   2/2     2            2           5m
+```
+
+### 17.12 Configure Pipeline Notifications (Optional)
+
+**Add Email Notifications:**
+
+1. Edit pipeline job → **Configure**
+2. Add **Post-build Actions**
+3. Select **Editable Email Notification**
+4. Configure:
+   - Recipients: `your-email@example.com`
+   - Triggers: **Failure - Any**, **Success**
+
+**Add Slack Notifications:**
+
+1. Install **Slack Notification** plugin
+2. Configure Slack webhook in Jenkins
+3. Add to Jenkinsfile:
+   ```groovy
+   post {
+       success {
+           slackSend color: 'good', message: "Build Successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+       }
+       failure {
+           slackSend color: 'danger', message: "Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+       }
+   }
+   ```
+
+### 17.13 Automatic Builds via GitHub Webhook
+
+**Test Webhook Trigger:**
+
+1. Make a small change to your code locally
+2. Commit and push to GitHub:
+   ```bash
+   git add .
+   git commit -m "Test CI/CD trigger"
+   git push origin main
+   ```
+3. Jenkins should automatically start a new build
+4. Check **Build History** for new build number
+5. GitHub webhook should show delivery in repo Settings → Webhooks
+
+**Troubleshoot Webhook:**
+- Check Jenkins is accessible from internet (not localhost)
+- Verify webhook URL: `http://your-ec2-public-ip:8080/github-webhook/`
+- Check GitHub webhook delivery logs for errors
+- Ensure security group allows port 8080
+
+### 17.14 Pipeline Best Practices
+
+**Security:**
+- Never hardcode credentials in Jenkinsfile
+- Use Jenkins credentials manager
+- Rotate access tokens regularly
+- Use minimal IAM permissions for AWS
+
+**Performance:**
+- Use Docker build cache
+- Parallelize independent stages
+- Clean workspace after builds
+- Archive artifacts selectively
+
+**Monitoring:**
+- Review build trends regularly
+- Set up failure alerts
+- Monitor build duration
+- Track deployment frequency
+
+### 17.15 Common Pipeline Issues and Solutions
+
+**Issue 1: Docker Login Failed**
+```
+Solution:
+- Verify dockerhub-credentials in Jenkins
+- Check DockerHub username/password
+- Test login manually: docker login
+```
+
+**Issue 2: AWS EKS Access Denied**
+```
+Solution:
+- Verify aws-credentials are correct
+- Check IAM permissions
+- Update kubeconfig: aws eks update-kubeconfig --name cluster-name
+```
+
+**Issue 3: Image Not Found**
+```
+Solution:
+- Verify image was pushed to DockerHub
+- Check image name matches in deployment YAML
+- Ensure image tag is correct
+```
+
+**Issue 4: Deployment Timeout**
+```
+Solution:
+- Check pod events: kubectl describe pod <pod-name>
+- Verify container image can be pulled
+- Check resource limits in deployment
+```
+
+**Issue 5: Webhook Not Triggering**
+```
+Solution:
+- Check GitHub webhook delivery logs
+- Verify Jenkins URL is accessible
+- Ensure GitHub hook trigger is enabled in job
+- Check firewall/security group rules
+```
+
+### 17.16 View Pipeline Metrics
+
+**In Jenkins Dashboard:**
+- Click on pipeline job name
+- View **Build History** graph
+- Check **Stage View** for bottlenecks
+- Review **Trend** for success rate
+
+**Useful Metrics:**
+- Build success rate
+- Average build duration
+- Most frequent failure stage
+- Deployment frequency
 
 ---
 
