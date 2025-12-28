@@ -1,5 +1,5 @@
 // Theme Management
-const API_URL = 'http://localhost:3000';
+const API_URL = 'http://localhost:5000';
 let currentTheme = localStorage.getItem('theme') || 'auto';
 
 // Initialize theme on page load

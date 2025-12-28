@@ -1,5 +1,5 @@
 // API URL
-const API_URL = 'http://localhost:3000';
+const API_URL = 'http://localhost:5000';
 
 // Check authentication
 const token = localStorage.getItem('token');
@@ -58,7 +58,7 @@ function displayUserData(user) {
   if (navUsername) navUsername.textContent = user.username;
   if (userAvatar) {
     if (user.profilePicture) {
-      userAvatar.innerHTML = `<img src="http://localhost:3000${user.profilePicture}" alt="${user.username}">`;
+      userAvatar.innerHTML = `<img src="http://localhost:5000${user.profilePicture}" alt="${user.username}">`;
     } else {
       userAvatar.textContent = user.username.charAt(0).toUpperCase();
     }
@@ -93,7 +93,7 @@ function displayUserData(user) {
   const profileImage = document.getElementById('profileImage');
   
   if (user.profilePicture) {
-    profileImage.src = `http://localhost:3000${user.profilePicture}`;
+    profileImage.src = `http://localhost:5000${user.profilePicture}`;
     profileImage.classList.remove('hidden');
     avatarInitial.classList.add('hidden');
   } else {
@@ -111,7 +111,7 @@ function displayUserData(user) {
 // Load user statistics
 async function loadStatistics() {
   try {
-    const response = await fetch('http://localhost:3000/api/my-jobs', {
+    const response = await fetch('http://localhost:5000/api/my-jobs', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -178,7 +178,7 @@ window.saveField = async function(field) {
   }
 
   try {
-    const response = await fetch('http://localhost:3000/api/profile', {
+    const response = await fetch('http://localhost:5000/api/profile', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -241,7 +241,7 @@ document.getElementById('photoInput')?.addEventListener('change', async (e) => {
   formData.append('profilePicture', file);
 
   try {
-    const response = await fetch('http://localhost:3000/api/profile/picture', {
+    const response = await fetch('http://localhost:5000/api/profile/picture', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -260,12 +260,12 @@ document.getElementById('photoInput')?.addEventListener('change', async (e) => {
     const avatarInitial = document.getElementById('avatarInitial');
     const userAvatar = document.getElementById('userAvatar');
 
-    profileImage.src = `http://localhost:3000${data.profilePicture}`;
+    profileImage.src = `http://localhost:5000${data.profilePicture}`;
     profileImage.classList.remove('hidden');
     avatarInitial.classList.add('hidden');
     
     if (userAvatar) {
-      userAvatar.innerHTML = `<img src="http://localhost:3000${data.profilePicture}" alt="${userData.username}">`;
+      userAvatar.innerHTML = `<img src="http://localhost:5000${data.profilePicture}" alt="${userData.username}">`;
     }
 
     userData.profilePicture = data.profilePicture;
@@ -304,7 +304,7 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
   }
 
   try {
-    const response = await fetch('http://localhost:3000/api/profile/password', {
+    const response = await fetch('http://localhost:5000/api/profile/password', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -335,7 +335,7 @@ document.getElementById('connectGoogleBtn')?.addEventListener('click', async () 
     if (!confirm('Are you sure you want to disconnect your Google account?')) return;
     
     try {
-      const response = await fetch('http://localhost:3000/api/profile/disconnect-google', {
+      const response = await fetch('http://localhost:5000/api/profile/disconnect-google', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -356,7 +356,7 @@ document.getElementById('connectGoogleBtn')?.addEventListener('click', async () 
     }
   } else {
     // Connect Google
-    window.location.href = 'http://localhost:3000/auth/google';
+    window.location.href = 'http://localhost:5000/auth/google';
   }
 });
 
@@ -367,7 +367,7 @@ window.clearHistory = async function() {
   }
 
   try {
-    const response = await fetch('http://localhost:3000/api/clear-history', {
+    const response = await fetch('http://localhost:5000/api/clear-history', {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -393,7 +393,7 @@ window.deleteAccount = async function() {
   }
 
   try {
-    const response = await fetch('http://localhost:3000/api/profile', {
+    const response = await fetch('http://localhost:5000/api/profile', {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`

@@ -2,7 +2,7 @@
 // AUTHENTICATION SYSTEM - FRONTEND
 // ============================================
 
-const API_URL = 'http://localhost:3000';
+const API_URL = 'http://localhost:5000';
 
 // Utility: Store authentication data
 function storeAuthData(token, user) {

@@ -28,16 +28,16 @@ services:
     container_name: compressorr-backend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "5001:5000"
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=5000
       - MONGO_URI=mongodb://mongodb:27017/filetool
       - JWT_SECRET=${JWT_SECRET:-your-secret-jwt-key-change-this}
       - SESSION_SECRET=${SESSION_SECRET:-your-session-secret-change-this}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-http://localhost:3000/auth/google/callback}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-http://localhost:5000/auth/google/callback}
     volumes:
       - ./backend/uploads:/app/uploads
       - ./backend/src:/app/src
@@ -47,7 +47,7 @@ services:
     networks:
       - compressorr-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

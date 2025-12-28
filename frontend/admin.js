@@ -5,13 +5,13 @@ if (!token) {
 }
 
 let socket;
-const API_URL = 'http://localhost:3000';
+const API_URL = 'http://localhost:5000';
 let users = [];
 let activityLog = [];
 
 // Initialize Socket.io connection
 function initializeSocket() {
-  socket = io('http://localhost:3000', {
+  socket = io('http://localhost:5000', {
     auth: {
       token: token
     }

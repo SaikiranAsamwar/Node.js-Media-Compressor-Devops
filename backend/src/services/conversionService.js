@@ -267,11 +267,6 @@ async function restoreImage(inputPath, outputPath, options = {}) {
   };
 }
 
-// Legacy function for backward compatibility
-async function compressImage(inputPath, outputPath, opts = { width: 1280, quality: 80 }) {
-  return convertImage(inputPath, outputPath, opts);
-}
-
 async function compressPdf(inputPath, outputPath, options = {}) {
   const { level = 'medium' } = options;
   

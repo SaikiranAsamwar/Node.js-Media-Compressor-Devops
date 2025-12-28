@@ -21,7 +21,13 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
+
+
 const router = express.Router();
+// Health check endpoint
+router.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
 
 // Configure multer for profile pictures
 const profileStorage = multer.diskStorage({

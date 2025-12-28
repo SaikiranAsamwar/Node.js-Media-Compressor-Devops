@@ -253,7 +253,7 @@ router.get('/google/callback',
         sameSite: 'lax'
       });
 
-      res.redirect(`http://localhost:3000/dashboard.html?token=${token}`);
+      res.redirect(`http://localhost:5000/dashboard.html?token=${token}`);
     } catch (error) {
       console.error('Google OAuth error:', error);
       res.redirect('/login.html?error=oauth_failed');

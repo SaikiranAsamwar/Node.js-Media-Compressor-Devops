@@ -1,5 +1,5 @@
 // Image Converter Page JavaScript
-const API_URL = 'http://localhost:3000';
+const API_URL = 'http://localhost:5000';
 
 // Check authentication
 function checkAuth() {
