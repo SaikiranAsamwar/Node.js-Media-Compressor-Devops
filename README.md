@@ -15,15 +15,16 @@ A full-stack Node.js application for image and PDF conversion, compression, and 
 - [Step 6: Install kubectl](#step-6-install-kubectl)
 - [Step 7: Install eksctl](#step-7-install-eksctl)
 - [Step 8: Install Java](#step-8-install-java)
-- [Step 9: Install & Configure Jenkins](#step-9-install--configure-jenkins)
-- [Step 10: Install & Configure SonarQube](#step-10-install--configure-sonarqube)
+- [Step 9: Install PostgreSQL](#step-9-install-postgresql-for-sonarqube)
+- [Step 10: Install & Configure Jenkins](#step-10-install--configure-jenkins)
+- [Step 11: Install & Configure SonarQube](#step-11-install--configure-sonarqube)
 
 ### SECTION B: DEPLOYMENT
-- [Step 11: Clone & Configure Application](#step-11-clone--configure-application)
-- [Step 12: Docker Deployment](#step-12-docker-deployment)
-- [Step 13: Kubernetes (EKS) Deployment](#step-13-kubernetes-eks-deployment)
-- [Step 14: Setup CI/CD Pipeline](#step-14-setup-cicd-pipeline)
-- [Step 15: Deploy Monitoring](#step-15-deploy-monitoring)
+- [Step 12: Clone & Configure Application](#step-12-clone--configure-application)
+- [Step 13: Docker Deployment](#step-13-docker-deployment)
+- [Step 14: Kubernetes (EKS) Deployment](#step-14-kubernetes-eks-deployment)
+- [Step 15: Setup CI/CD Pipeline](#step-15-setup-cicd-pipeline)
+- [Step 16: Deploy Monitoring](#step-16-deploy-monitoring)
 
 ### SECTION C: REFERENCE
 - [Environment Variables](#environment-variables)
@@ -231,9 +232,59 @@ java -version
 
 ---
 
-## Step 9: Install & Configure Jenkins
+## Step 9: Install PostgreSQL (for SonarQube)
 
-### 9.1 Install Jenkins
+```bash
+# Install PostgreSQL 15
+sudo dnf install -y postgresql15-server
+
+# Initialize database
+sudo postgresql-setup --initdb
+
+# Start and enable PostgreSQL
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+
+# Check status
+sudo systemctl status postgresql
+```
+
+### Configure PostgreSQL for SonarQube
+
+```bash
+# Switch to postgres user
+sudo -u postgres psql
+
+# In PostgreSQL prompt, run these commands:
+CREATE USER sonarqube WITH ENCRYPTED PASSWORD 'sonar123';
+CREATE DATABASE sonarqube OWNER sonarqube;
+GRANT ALL PRIVILEGES ON DATABASE sonarqube TO sonarqube;
+\q
+
+# Edit PostgreSQL authentication config
+sudo nano /var/lib/pgsql/data/pg_hba.conf
+```
+
+**Add this line before the other entries:**
+```
+host    sonarqube       sonarqube       127.0.0.1/32            md5
+```
+
+**Restart PostgreSQL:**
+```bash
+sudo systemctl restart postgresql
+
+# Test connection
+psql -h localhost -U sonarqube -d sonarqube
+# Enter password: sonar123
+# Type \q to exit
+```
+
+---
+
+## Step 10: Install & Configure Jenkins
+
+### 10.1 Install Jenkins
 
 ```bash
 # Add Jenkins repository
@@ -253,7 +304,7 @@ sudo systemctl enable jenkins
 sudo systemctl status jenkins
 ```
 
-### 9.2 Configure Jenkins Initial Setup
+### 10.2 Configure Jenkins Initial Setup
 
 ```bash
 # Get initial admin password
@@ -269,7 +320,7 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 3. Create admin user
 4. Configure Jenkins URL
 
-### 9.3 Install Required Jenkins Plugins
+### 10.3 Install Required Jenkins Plugins
 
 **Required Plugins:**
 - Docker Pipeline
@@ -284,7 +335,7 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 2. Search and install each plugin
 3. Restart Jenkins
 
-### 9.4 Configure Jenkins Credentials
+### 10.4 Configure Jenkins Credentials
 
 **Add DockerHub Credentials:**
 1. Manage Jenkins → Credentials → System → Global credentials
@@ -301,9 +352,9 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 
 ---
 
-## Step 10: Install & Configure SonarQube
+## Step 11: Install & Configure SonarQube
 
-### 10.1 Install SonarQube
+### 11.1 Install SonarQube
 
 ```bash
 # Create sonarqube user
@@ -336,7 +387,23 @@ EOF
 sudo sysctl -p
 ```
 
-### 10.2 Configure SonarQube Service
+### 11.2 Configure SonarQube Database Connection
+
+```bash
+# Edit SonarQube configuration
+sudo nano /opt/sonarqube/conf/sonar.properties
+```
+
+**Uncomment and update these lines:**
+```properties
+sonar.jdbc.username=sonarqube
+sonar.jdbc.password=sonar123
+sonar.jdbc.url=jdbc:postgresql://localhost/sonarqube
+```
+
+**Save and exit (Ctrl+X, Y, Enter)**
+
+### 11.3 Configure SonarQube Service
 
 ```bash
 # Create systemd service
@@ -367,7 +434,7 @@ sudo systemctl enable sonarqube
 sudo systemctl status sonarqube
 ```
 
-### 10.3 Access SonarQube UI
+### 11.4 Access SonarQube UI
 
 ```bash
 # Wait for startup (1-2 minutes)
@@ -378,7 +445,7 @@ sudo systemctl status sonarqube
 # Password: admin
 ```
 
-### 10.4 Configure SonarQube Project
+### 11.5 Configure SonarQube Project
 
 **In SonarQube UI:**
 1. Create new project
@@ -397,9 +464,9 @@ sudo systemctl status sonarqube
 
 # SECTION B: DEPLOYMENT
 
-## Step 11: Clone & Configure Application
+## Step 12: Clone & Configure Application
 
-### 11.1 Clone Repository
+### 12.1 Clone Repository
 
 ```bash
 # Clone your repository
@@ -407,7 +474,7 @@ git clone <your-repo-url>
 cd Compressorr
 ```
 
-### 11.2 Configure Environment Variables
+### 12.2 Configure Environment Variables
 
 ```bash
 # Edit .env file
@@ -426,7 +493,7 @@ PORT=5000
 NODE_ENV=production
 ```
 
-### 11.3 Create Required Directories
+### 12.3 Create Required Directories
 
 ```bash
 # Create upload directories
@@ -438,13 +505,16 @@ chmod -R 755 uploads
 
 ---
 
-## Step 12: Docker Deployment
+## Step 13: Docker Deployment
 
-### 12.1 Login to DockerHub
+### 13.2 Build Docker Images
 
 ```bash
-# Login to DockerHub
-docker login
+# Build backend image
+docker build -f Dockerfiles/backend.Dockerfile -t saikiranasamwar4/compressor-backend:latest ./backend
+
+# Build frontend image
+docker build -f Dockerfiles/frontend.Dockerfile -t saikiranasamwar4/compressor-frontend:latest ./frontend
 
 # Enter username and password when prompted
 ```
@@ -501,9 +571,9 @@ curl http://localhost:8080
 
 ---
 
-## Step 13: Kubernetes (EKS) Deployment
+## Step 14: Kubernetes (EKS) Deployment
 
-### 13.1 Create EKS Cluster
+### 14.1 Create EKS Cluster
 
 ```bash
 # Create EKS cluster (takes 15-20 minutes)
@@ -521,7 +591,7 @@ eksctl create cluster \
 kubectl get nodes
 ```
 
-### 13.2 Create Namespace
+### 14.2 Create Namespace
 
 ```bash
 # Create namespace
@@ -531,7 +601,7 @@ kubectl create namespace media-app
 kubectl config set-context --current --namespace=media-app
 ```
 
-### 13.3 Create MongoDB Secret
+### 14.3 Create MongoDB Secret
 
 ```bash
 # Create secret for MongoDB
@@ -541,7 +611,7 @@ kubectl apply -f k8s/mongo/mongo-secret.yaml
 kubectl get secrets
 ```
 
-### 13.4 Deploy MongoDB
+### 14.4 Deploy MongoDB
 
 ```bash
 # Deploy MongoDB StatefulSet
@@ -555,7 +625,7 @@ kubectl get statefulsets
 kubectl get pods
 ```
 
-### 13.5 Deploy Backend
+### 14.5 Deploy Backend
 
 ```bash
 # Deploy backend
@@ -568,7 +638,7 @@ kubectl get pods
 kubectl get services
 ```
 
-### 13.6 Deploy Frontend
+### 14.6 Deploy Frontend
 
 ```bash
 # Deploy frontend
@@ -579,7 +649,7 @@ kubectl apply -f k8s/frontend/frontend-service.yaml
 kubectl get all
 ```
 
-### 13.7 Access Application
+### 14.7 Access Application
 
 ```bash
 # Get LoadBalancer URL for frontend
@@ -589,7 +659,7 @@ kubectl get service frontend-service
 # Access: http://<EXTERNAL-IP>
 ```
 
-### 13.8 EKS Cluster Management
+### 14.8 EKS Cluster Management
 
 ```bash
 # View logs
@@ -612,9 +682,9 @@ eksctl delete cluster --name compressorr-cluster --region us-east-1
 
 ---
 
-## Step 14: Setup CI/CD Pipeline
+## Step 15: Setup CI/CD Pipeline
 
-### 14.1 Create Jenkins Pipeline
+### 15.1 Create Jenkins Pipeline
 
 1. Open Jenkins UI: `http://your-ec2-public-ip:8080`
 2. Click **New Item**
@@ -622,7 +692,7 @@ eksctl delete cluster --name compressorr-cluster --region us-east-1
 4. Select **Pipeline**
 5. Click **OK**
 
-### 14.2 Configure Pipeline
+### 15.2 Configure Pipeline
 
 1. **Pipeline** section:
    - Definition: **Pipeline script from SCM**
@@ -633,14 +703,14 @@ eksctl delete cluster --name compressorr-cluster --region us-east-1
    - Script Path: `Jenkinsfile`
 2. Click **Save**
 
-### 14.3 Run Pipeline
+### 15.3 Run Pipeline
 
 ```bash
 # Trigger build from Jenkins UI by clicking "Build Now"
 # Or push code to GitHub to trigger automatically
 ```
 
-### 14.4 Monitor Pipeline Execution
+### 15.4 Monitor Pipeline Execution
 
 1. Click on build number (#1, #2, etc.)
 2. Click **Console Output** to view logs
@@ -648,9 +718,9 @@ eksctl delete cluster --name compressorr-cluster --region us-east-1
 
 ---
 
-## Step 15: Deploy Monitoring
+## Step 16: Deploy Monitoring
 
-### 15.1 Deploy Prometheus
+### 16.1 Deploy Prometheus
 
 ```bash
 # Create Prometheus config
@@ -663,7 +733,7 @@ kubectl apply -f k8s/monitoring/prometheus-deployment.yaml
 kubectl get pods -l app=prometheus
 ```
 
-### 15.2 Deploy Grafana
+### 16.2 Deploy Grafana
 
 ```bash
 # Deploy Grafana
@@ -676,7 +746,7 @@ kubectl get service grafana
 # Default credentials: admin/admin
 ```
 
-### 15.3 Configure Grafana Data Source
+### 16.3 Configure Grafana Data Source
 
 **Add Prometheus Data Source:**
 1. Login to Grafana
@@ -691,7 +761,7 @@ kubectl get service grafana
 3. Select Prometheus data source
 4. Import
 
-### 15.4 View Metrics & Dashboards
+### 16.4 View Metrics & Dashboards
 
 **Access Prometheus:**
 - URL: `http://<prometheus-external-ip>:9090`
