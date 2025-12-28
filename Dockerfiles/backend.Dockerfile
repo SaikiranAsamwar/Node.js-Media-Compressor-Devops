@@ -26,7 +26,7 @@ RUN npm ci --only=production
 # Copy built application from builder
 COPY --from=builder /app ./
 
-EXPOSE 3000
+EXPOSE 5000
 
 # Start backend server
 CMD ["node", "src/server.js"]

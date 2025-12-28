@@ -17,7 +17,15 @@ spec:
       - name: backend
         image: saikiranasamwar4/compressor-backend:latest
         ports:
-          - containerPort: 3000
+          - containerPort: 5000
         env:
-          - name: MONGO_URL
-            value: "mongodb://mongoUser:mongoPass123@mongo.media-app.svc.cluster.local:27017/"
+          - name: MONGO_URI
+            value: "mongodb://mongo.media-app.svc.cluster.local:27017/filetool"
+          - name: JWT_SECRET
+            value: "your-k8s-jwt-secret-change-this"
+          - name: SESSION_SECRET
+            value: "your-k8s-session-secret-change-this"
+          - name: PORT
+            value: "5000"
+          - name: NODE_ENV
+            value: "production"
