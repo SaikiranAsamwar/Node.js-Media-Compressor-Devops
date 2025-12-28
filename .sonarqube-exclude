@@ -1,0 +1,8 @@
+# Files to exclude from SonarQube analysis
+**/node_modules/**
+**/uploads/**
+**/*.test.js
+**/*.spec.js
+**/coverage/**
+**/dist/**
+**/build/**

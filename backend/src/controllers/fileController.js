@@ -1,7 +1,7 @@
 const conversion = require('../services/conversionService');
 const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const fs = require('fs/promises');
+const path = require('node:path');
+const fs = require('node:fs/promises');
 
 // Minimal Job model using mongoose
 const mongoose = require('mongoose');

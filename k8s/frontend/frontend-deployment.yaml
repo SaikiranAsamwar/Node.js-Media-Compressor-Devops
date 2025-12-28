@@ -13,8 +13,16 @@ spec:
       labels:
         app: frontend
     spec:
+      automountServiceAccountToken: false
       containers:
       - name: frontend
-        image: saikiranasamwar4/compressor-frontend:latest
+        image: saikiranasamwar4/compressor-frontend:v1.0
         ports:
           - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

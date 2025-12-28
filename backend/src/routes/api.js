@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
+const path = require('node:path');
 const fileController = require('../controllers/fileController');
 const { authenticateToken } = require('../middleware/auth');
 const { router: adminRouter } = require('./admin');

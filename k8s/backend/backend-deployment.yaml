@@ -13,11 +13,19 @@ spec:
       labels:
         app: backend
     spec:
+      automountServiceAccountToken: false
       containers:
       - name: backend
-        image: saikiranasamwar4/compressor-backend:latest
+        image: saikiranasamwar4/compressor-backend:v1.0
         ports:
           - containerPort: 5000
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
         env:
           - name: MONGO_URI
             value: "mongodb://mongo.media-app.svc.cluster.local:27017/filetool"

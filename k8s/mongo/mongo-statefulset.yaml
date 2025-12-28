@@ -14,11 +14,19 @@ spec:
       labels:
         app: mongo
     spec:
+      automountServiceAccountToken: false
       containers:
       - name: mongo
         image: mongo:6.0
         ports:
           - containerPort: 27017
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
         env:
           - name: MONGO_INITDB_ROOT_USERNAME
             valueFrom:

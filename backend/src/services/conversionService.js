@@ -1,7 +1,7 @@
 const sharp = require('sharp');
 const { PDFDocument } = require('pdf-lib');
-const fs = require('fs/promises');
-const path = require('path');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 
 // Compression quality levels with accurate size reduction targets
 const QUALITY_LEVELS = {
