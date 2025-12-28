@@ -145,26 +145,20 @@ pipeline {
     // ============================================
     // STAGE 6: HEALTH CHECK - Verify Deployment
     // ============================================
-    stage('Post-Deployment Health Check') {
-      steps {
-        echo '🏥 Running post-deployment health checks...'
-        
-        sh """
-          echo "Checking Backend Status..."
-          kubectl -n ${NAMESPACE} get pods -l app=backend
-          
-          echo "Checking Frontend Status..."
-          kubectl -n ${NAMESPACE} get pods -l app=frontend
-          
-          echo "Checking Services..."
-          kubectl -n ${NAMESPACE} get svc
-        """
-        
-        echo '✅ Health check completed'
-      }
+   stage('Post-Deployment Health Check') {
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-credentials'
+        ]]) {
+            sh '''
+              aws eks update-kubeconfig --name compressorr-cluster --region us-east-1
+              kubectl -n media-app get pods -l app=backend
+              kubectl -n media-app get pods -l app=frontend
+            '''
+        }
     }
-
-  }
+}
 
   post {
     always {
