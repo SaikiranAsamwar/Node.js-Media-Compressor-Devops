@@ -877,9 +877,9 @@ curl http://localhost:8080
 ```bash
 # Create EKS cluster (takes 15-20 minutes)
 eksctl create cluster \
-  --name compressorr-cluster \
+  --name media-compressor-cluster \
   --region us-east-1 \
-  --nodegroup-name compressorr-nodes \
+  --nodegroup-name media-compressor-nodes \
   --node-type t3.medium \
   --nodes 2 \
   --nodes-min 1 \
