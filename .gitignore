@@ -11,6 +11,12 @@ terraform/terraform.tfstate*
 .env
 .env.local
 
+# SSH Keys and Certificates
+*.pem
+*.key
+*.ppk
+compressorr-devops-key.pem
+
 # IDE
 .vscode/
 .idea/
