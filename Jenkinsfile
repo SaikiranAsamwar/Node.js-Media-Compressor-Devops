@@ -102,48 +102,124 @@ pipeline {
     }
 
     // ============================================
-    // STAGE 5: EKS DEPLOYMENT
+    // STAGE 5: KUBERNETES - Apply Manifests
     // ============================================
-    stage('Deploy to Amazon EKS') {
+    stage('Apply Kubernetes Manifests') {
       steps {
-        echo '☸️ Deploying to Amazon EKS cluster...'
+        echo '📦 Applying Kubernetes manifests to EKS cluster...'
 
         withCredentials([[
           $class: 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-credentials'
         ]]) {
           sh """
+            # Update kubeconfig for EKS cluster
             aws eks update-kubeconfig \
               --name ${EKS_CLUSTER} \
               --region ${AWS_REGION}
 
-            kubectl -n ${NAMESPACE} set image deployment/backend \
-              backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
+            # Create namespace if it doesn't exist
+            kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-            kubectl -n ${NAMESPACE} set image deployment/frontend \
-              frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
+            # Apply namespace manifest
+            kubectl apply -f k8s/namespace.yaml
 
-            kubectl -n ${NAMESPACE} rollout status deployment/backend
-            kubectl -n ${NAMESPACE} rollout status deployment/frontend
+            # Apply MongoDB manifests (StatefulSet, Service, Secrets)
+            echo '🗄️  Deploying MongoDB...'
+            kubectl apply -f k8s/mongo/ -n ${NAMESPACE}
+
+            # Wait for MongoDB to be ready
+            kubectl wait --for=condition=ready pod -l app=mongo -n ${NAMESPACE} --timeout=300s || true
+
+            # Apply Backend manifests (Deployment, Service)
+            echo '⚙️  Deploying Backend...'
+            kubectl apply -f k8s/backend/ -n ${NAMESPACE}
+
+            # Apply Frontend manifests (Deployment, Service)
+            echo '🎨 Deploying Frontend...'
+            kubectl apply -f k8s/frontend/ -n ${NAMESPACE}
+
+            # Apply Monitoring manifests (Prometheus, Grafana)
+            echo '📊 Deploying Monitoring stack...'
+            kubectl apply -f k8s/monitoring/ -n ${NAMESPACE}
+
+            echo '✅ All Kubernetes manifests applied successfully'
           """
         }
-
-        echo '✅ Deployment completed'
       }
     }
 
     // ============================================
-    // STAGE 6: HEALTH CHECK
+    // STAGE 6: UPDATE - Container Images
     // ============================================
-    stage('Post-Deployment Health Check') {
+    stage('Update Container Images') {
       steps {
+        echo '🔄 Updating container images to latest build...'
+
         withCredentials([[
           $class: 'AmazonWebServicesCredentialsBinding',
           credentialsId: 'aws-credentials'
         ]]) {
           sh """
+            # Update backend image
+            kubectl -n ${NAMESPACE} set image deployment/backend \
+              backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
+
+            # Update frontend image
+            kubectl -n ${NAMESPACE} set image deployment/frontend \
+              frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
+
+            # Wait for rollouts to complete
+            echo '⏳ Waiting for backend rollout...'
+            kubectl -n ${NAMESPACE} rollout status deployment/backend --timeout=300s
+
+            echo '⏳ Waiting for frontend rollout...'
+            kubectl -n ${NAMESPACE} rollout status deployment/frontend --timeout=300s
+
+            echo '✅ Container images updated successfully'
+          """
+        }
+      }
+    }
+
+    // ============================================
+    // STAGE 7: HEALTH CHECK
+    // ============================================
+    stage('Post-Deployment Health Check') {
+      steps {
+        echo '🏥 Running post-deployment health checks...'
+
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-credentials'
+        ]]) {
+          sh """
+            echo '📋 Checking all pods status...'
+            kubectl -n ${NAMESPACE} get pods
+
+            echo ''
+            echo '🔍 Checking backend pods...'
             kubectl -n ${NAMESPACE} get pods -l app=backend
+
+            echo ''
+            echo '🔍 Checking frontend pods...'
             kubectl -n ${NAMESPACE} get pods -l app=frontend
+
+            echo ''
+            echo '🔍 Checking MongoDB pods...'
+            kubectl -n ${NAMESPACE} get pods -l app=mongo
+
+            echo ''
+            echo '📡 Checking services...'
+            kubectl -n ${NAMESPACE} get svc
+
+            echo ''
+            echo '🌐 Getting LoadBalancer URLs...'
+            kubectl -n ${NAMESPACE} get svc frontend-service -o wide
+            kubectl -n ${NAMESPACE} get svc backend-service -o wide
+
+            echo ''
+            echo '✅ Health check completed'
           """
         }
       }

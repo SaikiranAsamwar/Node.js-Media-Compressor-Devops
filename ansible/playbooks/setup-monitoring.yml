@@ -63,6 +63,7 @@
         dest: /etc/prometheus/prometheus.yml
         owner: prometheus
         group: prometheus
+        mode: '0644'
         content: |
           global:
             scrape_interval: 15s
@@ -82,6 +83,23 @@
                 - targets: ['YOUR_BACKEND_IP:3000']
               metrics_path: '/metrics'
 
+    - name: Validate Prometheus configuration
+      command: /usr/local/bin/promtool check config /etc/prometheus/prometheus.yml
+      become_user: prometheus
+      register: config_check
+      failed_when: config_check.rc != 0
+
+    - name: Set proper permissions on Prometheus directories
+      file:
+        path: "{{ item }}"
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        recurse: yes
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
+
     - name: Create Prometheus systemd service
       copy:
         dest: /etc/systemd/system/prometheus.service
@@ -95,11 +113,17 @@
           User=prometheus
           Group=prometheus
           Type=simple
+          Restart=on-failure
+          RestartSec=5s
           ExecStart=/usr/local/bin/prometheus \
             --config.file=/etc/prometheus/prometheus.yml \
             --storage.tsdb.path=/var/lib/prometheus \
             --web.console.templates=/etc/prometheus/consoles \
-            --web.console.libraries=/etc/prometheus/console_libraries
+            --web.console.libraries=/etc/prometheus/console_libraries \
+            --web.enable-lifecycle
+          ExecReload=/bin/kill -HUP $MAINPID
+          TimeoutStopSec=20s
+          SendSIGKILL=no
 
           [Install]
           WantedBy=multi-user.target
@@ -165,25 +189,43 @@
         state: present
         update_cache: yes
 
-    - name: Start services
+    - name: Reload systemd daemon
       systemd:
         daemon_reload: yes
+
+    - name: Enable and restart services
+      systemd:
         name: "{{ item }}"
-        state: started
+        state: restarted
         enabled: yes
       loop:
-        - prometheus
         - node_exporter
+        - prometheus
         - grafana-server
 
     - name: Wait for services to start
       wait_for:
         port: "{{ item }}"
-        delay: 5
+        delay: 10
+        timeout: 60
       loop:
-        - 9090  # Prometheus
         - 9100  # Node Exporter
+        - 9090  # Prometheus
         - 3000  # Grafana
+
+    - name: Check service status
+      systemd:
+        name: "{{ item }}"
+      register: service_status
+      loop:
+        - prometheus
+        - node_exporter
+        - grafana-server
+
+    - name: Display service status
+      debug:
+        msg: "Service {{ item.item }} is {{ item.status.ActiveState }}"
+      loop: "{{ service_status.results }}"
 
     - name: Display access information
       debug:

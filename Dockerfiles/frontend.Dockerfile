@@ -5,13 +5,21 @@
 
 FROM nginx:stable-alpine
 
+# Remove default nginx configuration
+RUN rm -rf /etc/nginx/conf.d/default.conf
+RUN rm -rf /usr/share/nginx/html/*
+
 # Copy static frontend files to nginx directory
-COPY . /usr/share/nginx/html
+COPY frontend/*.html frontend/*.css frontend/*.js /usr/share/nginx/html/
 
-# Copy custom nginx configuration
-COPY Dockerfiles/nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx configuration from frontend directory
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
+# Create health check endpoint
+RUN echo "OK" > /usr/share/nginx/html/health
 
+# Verify files are copied
+RUN ls -la /usr/share/nginx/html/
 
 EXPOSE 80
 

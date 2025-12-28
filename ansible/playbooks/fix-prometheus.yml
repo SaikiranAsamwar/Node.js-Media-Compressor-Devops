@@ -1,0 +1,106 @@
+---
+- name: Troubleshoot and Fix Prometheus Issues
+  hosts: monitoring
+  become: yes
+
+  tasks:
+    - name: Stop Prometheus service
+      systemd:
+        name: prometheus
+        state: stopped
+      ignore_errors: yes
+
+    - name: Check Prometheus configuration syntax
+      command: /usr/local/bin/promtool check config /etc/prometheus/prometheus.yml
+      become_user: prometheus
+      register: config_validation
+      ignore_errors: yes
+
+    - name: Display configuration validation result
+      debug:
+        var: config_validation.stdout_lines
+
+    - name: Fix permissions on Prometheus directories
+      file:
+        path: "{{ item }}"
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        state: directory
+        recurse: yes
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
+
+    - name: Clean up corrupted data (if needed)
+      file:
+        path: /var/lib/prometheus/wal
+        state: absent
+      when: config_validation.rc == 0
+
+    - name: Recreate WAL directory
+      file:
+        path: /var/lib/prometheus
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+        state: directory
+
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Start Prometheus service
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+
+    - name: Wait for Prometheus to start
+      wait_for:
+        port: 9090
+        delay: 5
+        timeout: 60
+      register: prometheus_started
+      ignore_errors: yes
+
+    - name: Check Prometheus service status
+      command: systemctl status prometheus
+      register: service_status
+      ignore_errors: yes
+
+    - name: Display service status
+      debug:
+        var: service_status.stdout_lines
+
+    - name: Get Prometheus logs
+      command: journalctl -u prometheus -n 50 --no-pager
+      register: prometheus_logs
+
+    - name: Display Prometheus logs
+      debug:
+        var: prometheus_logs.stdout_lines
+
+    - name: Test Prometheus API
+      uri:
+        url: "http://localhost:9090/-/healthy"
+        method: GET
+        status_code: 200
+      when: prometheus_started is succeeded
+      register: health_check
+
+    - name: Display health check result
+      debug:
+        msg: "Prometheus is healthy!"
+      when: health_check is succeeded
+
+    - name: Display troubleshooting info if Prometheus fails
+      debug:
+        msg:
+          - "Prometheus failed to start. Common issues:"
+          - "1. Check configuration: /usr/local/bin/promtool check config /etc/prometheus/prometheus.yml"
+          - "2. Check permissions: ls -la /etc/prometheus /var/lib/prometheus"
+          - "3. Check logs: journalctl -u prometheus -n 100"
+          - "4. Check port availability: netstat -tlnp | grep 9090"
+          - "5. Check disk space: df -h"
+      when: prometheus_started is failed

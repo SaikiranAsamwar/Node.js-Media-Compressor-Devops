@@ -586,7 +586,20 @@ scrape_configs:
 
 **Save and exit (Ctrl+X, Y, Enter)**
 
-### 12.3 Create Prometheus Service
+### 12.3 Validate Configuration
+
+```bash
+# Validate configuration file
+sudo -u prometheus /usr/local/bin/promtool check config /etc/prometheus/prometheus.yml
+
+# Fix permissions if needed
+sudo chown -R prometheus:prometheus /etc/prometheus
+sudo chown -R prometheus:prometheus /var/lib/prometheus
+sudo chmod 755 /etc/prometheus
+sudo chmod 755 /var/lib/prometheus
+```
+
+### 12.4 Create Prometheus Service
 
 ```bash
 # Create systemd service file
@@ -600,11 +613,17 @@ After=network-online.target
 User=prometheus
 Group=prometheus
 Type=simple
+Restart=on-failure
+RestartSec=5s
 ExecStart=/usr/local/bin/prometheus \
-  --config.file /etc/prometheus/prometheus.yml \
-  --storage.tsdb.path /var/lib/prometheus/ \
+  --config.file=/etc/prometheus/prometheus.yml \
+  --storage.tsdb.path=/var/lib/prometheus/ \
   --web.console.templates=/etc/prometheus/consoles \
-  --web.console.libraries=/etc/prometheus/console_libraries
+  --web.console.libraries=/etc/prometheus/console_libraries \
+  --web.enable-lifecycle
+ExecReload=/bin/kill -HUP $MAINPID
+TimeoutStopSec=20s
+SendSIGKILL=no
 
 [Install]
 WantedBy=multi-user.target
@@ -617,11 +636,17 @@ sudo systemctl daemon-reload
 sudo systemctl start prometheus
 sudo systemctl enable prometheus
 
+# Wait for service to start
+sleep 5
+
 # Check status
 sudo systemctl status prometheus
+
+# Check logs if failed
+sudo journalctl -u prometheus -n 50 --no-pager
 ```
 
-### 12.4 Install Node Exporter (System Metrics)
+### 12.5 Install Node Exporter (System Metrics)
 
 ```bash
 # Download Node Exporter
@@ -665,15 +690,89 @@ sudo systemctl enable node_exporter
 sudo systemctl status node_exporter
 ```
 
-### 12.5 Verify Prometheus
+### 12.6 Verify Prometheus
 
 ```bash
+# Check if Prometheus is listening
+sudo netstat -tlnp | grep 9090
+
+# Test Prometheus API
+curl http://localhost:9090/-/healthy
+
 # Access Prometheus UI
 # Open browser: http://your-ec2-public-ip:9090
 
 # Check targets
 # Go to Status → Targets to verify all targets are UP
 ```
+
+### 12.7 Troubleshoot Prometheus Issues
+
+If Prometheus fails to start, use these commands:
+
+```bash
+# Check service status
+sudo systemctl status prometheus
+
+# View detailed logs
+sudo journalctl -u prometheus -n 100 --no-pager
+
+# Validate configuration
+sudo -u prometheus /usr/local/bin/promtool check config /etc/prometheus/prometheus.yml
+
+# Check permissions
+ls -la /etc/prometheus
+ls -la /var/lib/prometheus
+
+# Fix permissions
+sudo chown -R prometheus:prometheus /etc/prometheus
+sudo chown -R prometheus:prometheus /var/lib/prometheus
+
+# Check port availability
+sudo netstat -tlnp | grep 9090
+
+# If data is corrupted, clean and restart
+sudo systemctl stop prometheus
+sudo rm -rf /var/lib/prometheus/wal
+sudo mkdir -p /var/lib/prometheus
+sudo chown -R prometheus:prometheus /var/lib/prometheus
+sudo systemctl start prometheus
+
+# Use automated troubleshooting script
+chmod +x scripts/check-prometheus.sh
+sudo ./scripts/check-prometheus.sh
+```
+
+**Common Prometheus Errors and Solutions:**
+
+1. **"Permission denied" errors:**
+   ```bash
+   sudo chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+   ```
+
+2. **"Config file invalid" errors:**
+   ```bash
+   sudo -u prometheus /usr/local/bin/promtool check config /etc/prometheus/prometheus.yml
+   ```
+
+3. **Service fails to start:**
+   ```bash
+   sudo journalctl -u prometheus -n 50
+   # Check for specific error and fix accordingly
+   ```
+
+4. **Port already in use:**
+   ```bash
+   sudo lsof -i :9090  # Find what's using the port
+   sudo kill -9 <PID>  # Kill the process
+   ```
+
+5. **Corrupted WAL (Write-Ahead Log):**
+   ```bash
+   sudo systemctl stop prometheus
+   sudo rm -rf /var/lib/prometheus/wal
+   sudo systemctl start prometheus
+   ```
 
 ---
 
@@ -958,26 +1057,95 @@ kubectl get service frontend-service
 # Access: http://<EXTERNAL-IP>
 ```
 
-### 14.8 EKS Cluster Management
+### 14.8 Manual Kubernetes Deployment (Alternative to CI/CD)
+
+If you want to deploy manually without Jenkins, use the provided deployment script:
 
 ```bash
+# Make script executable
+chmod +x scripts/deploy-k8s.sh
+
+# Run deployment
+./scripts/deploy-k8s.sh
+```
+
+**Or deploy manually step-by-step:**
+
+```bash
+# 1. Update kubeconfig
+aws eks update-kubeconfig --name compressorr-cluster --region us-east-1
+
+# 2. Create namespace
+kubectl apply -f k8s/namespace.yaml
+
+# 3. Deploy MongoDB
+kubectl apply -f k8s/mongo/ -n media-app
+kubectl wait --for=condition=ready pod -l app=mongo -n media-app --timeout=300s
+
+# 4. Deploy Backend
+kubectl apply -f k8s/backend/ -n media-app
+kubectl wait --for=condition=ready pod -l app=backend -n media-app --timeout=300s
+
+# 5. Deploy Frontend
+kubectl apply -f k8s/frontend/ -n media-app
+kubectl wait --for=condition=ready pod -l app=frontend -n media-app --timeout=300s
+
+# 6. Deploy Monitoring
+kubectl apply -f k8s/monitoring/ -n media-app
+
+# 7. Verify deployment
+kubectl get all -n media-app
+kubectl get svc -n media-app
+```
+
+### 14.9 EKS Cluster Management
+
+```bash
+# View all resources
+kubectl get all -n media-app
+
 # View logs
-kubectl logs <pod-name>
-kubectl logs -f <pod-name>  # Follow logs
+kubectl logs <pod-name> -n media-app
+kubectl logs -f <pod-name> -n media-app  # Follow logs
+kubectl logs -l app=backend -n media-app  # All backend pods
 
 # Describe resources
-kubectl describe pod <pod-name>
-kubectl describe service <service-name>
+kubectl describe pod <pod-name> -n media-app
+kubectl describe service <service-name> -n media-app
 
 # Scale deployment
-kubectl scale deployment backend --replicas=3
+kubectl scale deployment backend --replicas=3 -n media-app
 
 # Update image
-kubectl set image deployment/backend backend=saikiranasamwar4/compressor-backend:v2
+kubectl set image deployment/backend backend=saikiranasamwar4/compressor-backend:v2 -n media-app
+kubectl rollout status deployment/backend -n media-app
 
-# Delete cluster (cleanup)
+# Rollback deployment
+kubectl rollout undo deployment/backend -n media-app
+# Or use the script:
+chmod +x scripts/rollback-k8s.sh
+./scripts/rollback-k8s.sh
+
+# Restart deployment (without image change)
+kubectl rollout restart deployment/backend -n media-app
+
+# Delete specific resources
+kubectl delete -f k8s/frontend/ -n media-app
+
+# Cleanup everything
+chmod +x scripts/cleanup-k8s.sh
+./scripts/cleanup-k8s.sh
+
+# Delete cluster (complete cleanup)
 eksctl delete cluster --name compressorr-cluster --region us-east-1
 ```
+
+**Helper Scripts Available:**
+- `scripts/deploy-k8s.sh` - Automated deployment
+- `scripts/rollback-k8s.sh` - Rollback to previous version
+- `scripts/cleanup-k8s.sh` - Remove all resources
+- `scripts/debug-frontend.sh` - Debug frontend issues
+- `scripts/rebuild-frontend.sh` - Rebuild and redeploy frontend
 
 ---
 
@@ -989,15 +1157,25 @@ The project includes a `Jenkinsfile` that defines the complete CI/CD pipeline wi
 
 **Pipeline Stages:**
 1. **Git Checkout** - Clone source code from repository
-2. **SonarQube Analysis** (Optional) - Code quality scan
-3. **Build Docker Images** - Build backend and frontend containers
-4. **Push to DockerHub** - Upload images to container registry
-5. **Deploy to EKS** - Update Kubernetes deployments
+2. **SonarQube Analysis** - Code quality and security scan
+3. **Quality Gate Check** - Verify code meets quality standards
+4. **Build & Push Docker Images** - Build backend and frontend containers and push to DockerHub
+5. **Apply Kubernetes Manifests** - Deploy/update all K8s resources (MongoDB, Backend, Frontend, Monitoring)
+6. **Update Container Images** - Update deployments with new Docker images
+7. **Post-Deployment Health Check** - Verify all pods and services are healthy
+
+**Kubernetes Resources Deployed:**
+- Namespace (`media-app`)
+- MongoDB (StatefulSet, Service, Secrets)
+- Backend (Deployment, Service)
+- Frontend (Deployment, Service with LoadBalancer)
+- Monitoring (Prometheus, Grafana with ConfigMaps)
 
 **Prerequisites:**
 - All credentials configured (DockerHub, AWS, GitHub, SonarQube)
 - GitHub webhook configured for auto-trigger
 - EKS cluster running and accessible
+- kubectl configured with EKS cluster access
 
 ### 17.2 Review Jenkinsfile Configuration
 
@@ -1125,17 +1303,38 @@ Started by user admin
 [Pipeline] node
 [Pipeline] stage (Git Checkout)
   ✓ Checking out code from repository...
+  
 [Pipeline] stage (SonarQube Analysis)
   ✓ Running code quality scan...
+  
+[Pipeline] stage (SonarQube Quality Gate)
+  ✓ Waiting for quality gate...
+  ✓ Quality gate passed
+  
 [Pipeline] stage (Build & Push Docker Images)
   ✓ Building backend Docker image...
   ✓ Building frontend Docker image...
   ✓ Pushing to DockerHub...
-[Pipeline] stage (Deploy to Amazon EKS)
-  ✓ Updating EKS deployments...
-  ✓ Waiting for rollout...
+  
+[Pipeline] stage (Apply Kubernetes Manifests)
+  ✓ Creating namespace media-app...
+  ✓ Deploying MongoDB...
+  ✓ Deploying Backend...
+  ✓ Deploying Frontend...
+  ✓ Deploying Monitoring stack...
+  
+[Pipeline] stage (Update Container Images)
+  ✓ Updating backend deployment...
+  ✓ Updating frontend deployment...
+  ✓ Waiting for rollouts...
+  
+[Pipeline] stage (Post-Deployment Health Check)
+  ✓ Checking all pods...
+  ✓ Checking services...
+  ✓ Getting LoadBalancer URLs...
+  
 [Pipeline] End
-SUCCESS - Build completed in 8m 32s
+SUCCESS - Build completed in 12m 45s
 ```
 
 ### 17.10 Monitor Pipeline Execution
@@ -1409,6 +1608,86 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ---
 
 ## Troubleshooting
+
+### Frontend/Nginx Issues
+
+**Problem: LoadBalancer shows default nginx page instead of application**
+
+This is usually caused by incorrect nginx configuration or files not being copied properly.
+
+**Solution 1: Rebuild and redeploy the frontend image**
+```bash
+# Use the automated rebuild script
+chmod +x scripts/rebuild-frontend.sh
+./scripts/rebuild-frontend.sh
+```
+
+**Solution 2: Manual fix steps**
+```bash
+# 1. Rebuild the Docker image
+docker build -f Dockerfiles/frontend.Dockerfile -t saikiranasamwar4/compressor-frontend:v1.0 .
+
+# 2. Test locally first
+docker run -d --name test-frontend -p 8080:80 saikiranasamwar4/compressor-frontend:v1.0
+
+# 3. Verify it works
+curl http://localhost:8080/health
+curl http://localhost:8080/  # Should show your HTML, not nginx default
+
+# 4. If test passes, push to Docker Hub
+docker push saikiranasamwar4/compressor-frontend:v1.0
+
+# 5. Delete existing pods to pull new image
+kubectl delete pods -n media-app -l app=frontend
+
+# 6. Wait for pods to be ready
+kubectl wait --for=condition=ready pod -n media-app -l app=frontend --timeout=120s
+
+# 7. Test the LoadBalancer URL
+LB_URL=$(kubectl get svc frontend-service -n media-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+curl http://$LB_URL/health
+```
+
+**Solution 3: Debug the deployment**
+```bash
+# Use the debug script
+chmod +x scripts/debug-frontend.sh
+./scripts/debug-frontend.sh
+
+# Or manually check:
+POD_NAME=$(kubectl get pods -n media-app -l app=frontend -o jsonpath='{.items[0].metadata.name}')
+
+# Check files in the container
+kubectl exec -n media-app $POD_NAME -- ls -la /usr/share/nginx/html/
+
+# Check nginx config
+kubectl exec -n media-app $POD_NAME -- cat /etc/nginx/conf.d/default.conf
+
+# Check pod logs
+kubectl logs -n media-app $POD_NAME
+```
+
+**Common Causes:**
+- ✗ Docker image not rebuilt after config changes
+- ✗ Kubernetes using cached/old image
+- ✗ Wrong nginx.conf file being copied
+- ✗ Frontend files not copied to correct directory
+- ✗ Browser cache showing old version
+
+**Quick Fixes:**
+```bash
+# Force clear browser cache
+# Press Ctrl+Shift+R or Cmd+Shift+R
+
+# Force Kubernetes to pull new image
+kubectl rollout restart deployment frontend -n media-app
+
+# If still not working, delete and recreate
+kubectl delete deployment frontend -n media-app
+kubectl apply -f k8s/frontend/
+```
+
+---
 
 ### Docker Issues
 
