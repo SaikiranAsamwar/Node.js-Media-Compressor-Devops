@@ -18,13 +18,15 @@ A full-stack Node.js application for image and PDF conversion, compression, and 
 - [Step 9: Install PostgreSQL](#step-9-install-postgresql-for-sonarqube)
 - [Step 10: Install & Configure Jenkins](#step-10-install--configure-jenkins)
 - [Step 11: Install & Configure SonarQube](#step-11-install--configure-sonarqube)
+- [Step 12: Install & Configure Prometheus](#step-12-install--configure-prometheus)
+- [Step 13: Install & Configure Grafana](#step-13-install--configure-grafana)
 
 ### SECTION B: DEPLOYMENT
-- [Step 12: Clone & Configure Application](#step-12-clone--configure-application)
-- [Step 13: Docker Deployment](#step-13-docker-deployment)
-- [Step 14: Kubernetes (EKS) Deployment](#step-14-kubernetes-eks-deployment)
-- [Step 15: Setup CI/CD Pipeline](#step-15-setup-cicd-pipeline)
-- [Step 16: Deploy Monitoring](#step-16-deploy-monitoring)
+- [Step 14: Clone & Configure Application](#step-14-clone--configure-application)
+- [Step 15: Docker Deployment](#step-15-docker-deployment)
+- [Step 16: Kubernetes (EKS) Deployment](#step-16-kubernetes-eks-deployment)
+- [Step 17: Setup CI/CD Pipeline](#step-17-setup-cicd-pipeline)
+- [Step 18: Verify Monitoring](#step-18-verify-monitoring)
 
 ### SECTION C: REFERENCE
 - [Environment Variables](#environment-variables)
@@ -507,11 +509,263 @@ sudo systemctl status sonarqube
 
 ---
 
+## Step 12: Install & Configure Prometheus
+
+### 12.1 Download and Install Prometheus
+
+```bash
+# Create prometheus user
+sudo useradd --no-create-home --shell /bin/false prometheus
+
+# Create directories
+sudo mkdir /etc/prometheus
+sudo mkdir /var/lib/prometheus
+
+# Set ownership
+sudo chown prometheus:prometheus /etc/prometheus
+sudo chown prometheus:prometheus /var/lib/prometheus
+
+# Download Prometheus
+cd /tmp
+wget https://github.com/prometheus/prometheus/releases/download/v2.48.0/prometheus-2.48.0.linux-amd64.tar.gz
+
+# Extract
+tar -xvf prometheus-2.48.0.linux-amd64.tar.gz
+cd prometheus-2.48.0.linux-amd64
+
+# Copy binaries
+sudo cp prometheus /usr/local/bin/
+sudo cp promtool /usr/local/bin/
+
+# Set ownership
+sudo chown prometheus:prometheus /usr/local/bin/prometheus
+sudo chown prometheus:prometheus /usr/local/bin/promtool
+
+# Copy configuration files
+sudo cp -r consoles /etc/prometheus
+sudo cp -r console_libraries /etc/prometheus
+sudo cp prometheus.yml /etc/prometheus/prometheus.yml
+
+# Set ownership
+sudo chown -R prometheus:prometheus /etc/prometheus
+
+# Verify installation
+prometheus --version
+```
+
+### 12.2 Configure Prometheus
+
+```bash
+# Edit Prometheus configuration
+sudo nano /etc/prometheus/prometheus.yml
+```
+
+**Replace with the following configuration:**
+```yaml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Backend application metrics
+  - job_name: 'compressorr-backend'
+    static_configs:
+      - targets: ['localhost:5000']
+    metrics_path: '/metrics'
+
+  # Node Exporter (system metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+```
+
+**Save and exit (Ctrl+X, Y, Enter)**
+
+### 12.3 Create Prometheus Service
+
+```bash
+# Create systemd service file
+sudo tee /etc/systemd/system/prometheus.service << 'EOF'
+[Unit]
+Description=Prometheus
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+ExecStart=/usr/local/bin/prometheus \
+  --config.file /etc/prometheus/prometheus.yml \
+  --storage.tsdb.path /var/lib/prometheus/ \
+  --web.console.templates=/etc/prometheus/consoles \
+  --web.console.libraries=/etc/prometheus/console_libraries
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd
+sudo systemctl daemon-reload
+
+# Start Prometheus
+sudo systemctl start prometheus
+sudo systemctl enable prometheus
+
+# Check status
+sudo systemctl status prometheus
+```
+
+### 12.4 Install Node Exporter (System Metrics)
+
+```bash
+# Download Node Exporter
+cd /tmp
+wget https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz
+
+# Extract
+tar -xvf node_exporter-1.7.0.linux-amd64.tar.gz
+
+# Copy binary
+sudo cp node_exporter-1.7.0.linux-amd64/node_exporter /usr/local/bin/
+
+# Create user
+sudo useradd --no-create-home --shell /bin/false node_exporter
+
+# Set ownership
+sudo chown node_exporter:node_exporter /usr/local/bin/node_exporter
+
+# Create systemd service
+sudo tee /etc/systemd/system/node_exporter.service << 'EOF'
+[Unit]
+Description=Node Exporter
+After=network.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+Type=simple
+ExecStart=/usr/local/bin/node_exporter
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Start Node Exporter
+sudo systemctl daemon-reload
+sudo systemctl start node_exporter
+sudo systemctl enable node_exporter
+
+# Check status
+sudo systemctl status node_exporter
+```
+
+### 12.5 Verify Prometheus
+
+```bash
+# Access Prometheus UI
+# Open browser: http://your-ec2-public-ip:9090
+
+# Check targets
+# Go to Status → Targets to verify all targets are UP
+```
+
+---
+
+## Step 13: Install & Configure Grafana
+
+### 13.1 Install Grafana
+
+```bash
+# Add Grafana repository
+sudo tee /etc/yum.repos.d/grafana.repo << 'EOF'
+[grafana]
+name=grafana
+baseurl=https://rpm.grafana.com
+repo_gpgcheck=1
+enabled=1
+gpgcheck=1
+gpgkey=https://rpm.grafana.com/gpg.key
+sslverify=1
+sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+EOF
+
+# Install Grafana
+sudo dnf install -y grafana
+
+# Start Grafana
+sudo systemctl start grafana-server
+sudo systemctl enable grafana-server
+
+# Check status
+sudo systemctl status grafana-server
+```
+
+### 13.2 Access Grafana UI
+
+```bash
+# Access Grafana
+# Open browser: http://your-ec2-public-ip:3000
+
+# Default credentials:
+# Username: admin
+# Password: admin
+# (You'll be prompted to change password on first login)
+```
+
+### 13.3 Configure Prometheus Data Source in Grafana
+
+**In Grafana UI:**
+1. Login with admin/admin
+2. Change password when prompted
+3. Click **Add your first data source**
+4. Select **Prometheus**
+5. Configure:
+   - Name: `Prometheus`
+   - URL: `http://localhost:9090`
+   - Access: `Server (default)`
+6. Click **Save & Test**
+7. Should show "Data source is working"
+
+### 13.4 Import Pre-built Dashboards
+
+**Import Node Exporter Dashboard:**
+1. Click **+** → **Import**
+2. Enter dashboard ID: `1860`
+3. Click **Load**
+4. Select Prometheus data source
+5. Click **Import**
+
+**Import Custom Compressorr Dashboard (if available):**
+1. Click **+** → **Import**
+2. Upload `monitoring/grafana-dashboards/compressorr-dashboard.json` from your project
+3. Select Prometheus data source
+4. Click **Import**
+
+### 13.5 Create Simple Dashboard for Compressorr
+
+If custom dashboard doesn't exist, create one:
+
+1. Click **+** → **Dashboard** → **Add new panel**
+2. Query examples:
+   - HTTP Request Rate: `rate(http_requests_total[5m])`
+   - Memory Usage: `nodejs_heap_size_used_bytes`
+   - Active Connections: `http_requests_active`
+3. Customize visualization
+4. Click **Save** → Name: `Compressorr Monitoring`
+
+---
+
 # SECTION B: DEPLOYMENT
 
-## Step 12: Clone & Configure Application
+## Step 14: Clone & Configure Application
 
-### 12.1 Clone Repository
+### 14.1 Clone Repository
 
 ```bash
 # Clone your repository
@@ -519,7 +773,7 @@ git clone <your-repo-url>
 cd Compressorr
 ```
 
-### 12.2 Configure Environment Variables
+### 14.2 Configure Environment Variables
 
 ```bash
 # Edit .env file
@@ -538,7 +792,7 @@ PORT=5000
 NODE_ENV=production
 ```
 
-### 12.3 Create Required Directories
+### 14.3 Create Required Directories
 
 ```bash
 # Create upload directories
@@ -616,9 +870,9 @@ curl http://localhost:8080
 
 ---
 
-## Step 14: Kubernetes (EKS) Deployment
+## Step 16: Kubernetes (EKS) Deployment
 
-### 14.1 Create EKS Cluster
+### 16.1 Create EKS Cluster
 
 ```bash
 # Create EKS cluster (takes 15-20 minutes)
@@ -727,9 +981,9 @@ eksctl delete cluster --name compressorr-cluster --region us-east-1
 
 ---
 
-## Step 15: Setup CI/CD Pipeline
+## Step 17: Setup CI/CD Pipeline
 
-### 15.1 Create Jenkins Pipeline
+### 17.1 Create Jenkins Pipeline
 
 1. Open Jenkins UI: `http://your-ec2-public-ip:8080`
 2. Click **New Item**
@@ -763,61 +1017,59 @@ eksctl delete cluster --name compressorr-cluster --region us-east-1
 
 ---
 
-## Step 16: Deploy Monitoring
+## Step 18: Verify Monitoring
 
-### 16.1 Deploy Prometheus
-
-```bash
-# Create Prometheus config
-kubectl apply -f k8s/monitoring/prometheus-config.yaml
-
-# Deploy Prometheus
-kubectl apply -f k8s/monitoring/prometheus-deployment.yaml
-
-# Check status
-kubectl get pods -l app=prometheus
-```
-
-### 16.2 Deploy Grafana
+### 18.1 Verify Prometheus
 
 ```bash
-# Deploy Grafana
-kubectl apply -f k8s/monitoring/grafana-deployment.yaml
+# Access Prometheus UI
+# Browser: http://your-ec2-public-ip:9090
 
-# Get Grafana service URL
-kubectl get service grafana
+# Check if targets are UP
+# Go to Status → Targets
 
-# Access: http://<EXTERNAL-IP>:3000
-# Default credentials: admin/admin
+# Run sample queries:
+# - up (shows all targets)
+# - rate(http_requests_total[5m])
+# - nodejs_heap_size_used_bytes
 ```
 
-### 16.3 Configure Grafana Data Source
+### 18.2 Verify Grafana Dashboards
 
-**Add Prometheus Data Source:**
-1. Login to Grafana
-2. Configuration → Data Sources → Add data source
-3. Select Prometheus
-4. URL: `http://prometheus:9090`
-5. Save & Test
+```bash
+# Access Grafana UI
+# Browser: http://your-ec2-public-ip:3000
 
-**Import Dashboard:**
-1. Dashboard → Import
-2. Upload `monitoring/grafana-dashboards/compressorr-dashboard.json`
-3. Select Prometheus data source
-4. Import
+# Login with admin credentials
+# Verify Prometheus data source is connected (green check)
 
-### 16.4 View Metrics & Dashboards
+# Check dashboards:
+# - Node Exporter Full (ID: 1860)
+# - Compressorr Custom Dashboard (if imported)
+```
 
-**Access Prometheus:**
-- URL: `http://<prometheus-external-ip>:9090`
-- Query examples:
-  - `up` - Service health
-  - `http_requests_total` - Request count
-  - `nodejs_heap_size_used_bytes` - Memory usage
+### 18.3 Monitor Application Metrics
 
-**Access Grafana:**
-- URL: `http://<grafana-external-ip>:3000`
-- View imported Compressorr dashboard
+**Key Metrics to Monitor:**
+
+1. **System Metrics (Node Exporter Dashboard):**
+   - CPU Usage
+   - Memory Usage
+   - Disk I/O
+   - Network Traffic
+
+2. **Application Metrics (Backend):**
+   - HTTP Request Rate: `rate(http_requests_total[5m])`
+   - Response Time: `http_request_duration_seconds`
+   - Active Connections: `nodejs_active_handles`
+   - Memory Heap: `nodejs_heap_size_used_bytes`
+
+3. **Alerts (Optional):**
+   - Set up alerts in Grafana for high CPU, memory, or error rates
+
+**Access URLs:**
+- Prometheus: `http://your-ec2-public-ip:9090`
+- Grafana: `http://your-ec2-public-ip:3000`
 
 ---
 
