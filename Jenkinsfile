@@ -86,7 +86,7 @@ pipeline {
               -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} \
               -t ${DOCKERHUB_BACKEND}:latest .
             docker push ${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
-            docker push ${DOCKERHUB_BACKEND}:latest
+            // docker push ${DOCKERHUB_BACKEND}:latest
           """
         }
         echo '✅ Backend image pushed to DockerHub'
