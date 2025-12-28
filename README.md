@@ -4,18 +4,32 @@ A full-stack Node.js application for image and PDF conversion, compression, and 
 
 ## 📋 Table of Contents
 
+### SECTION A: INSTALLATION & CONFIGURATION
 - [Architecture Overview](#architecture-overview)
 - [Prerequisites](#prerequisites)
-- [Part 1: EC2 Instance Setup](#part-1-ec2-instance-setup)
-- [Part 2: Install Required Tools](#part-2-install-required-tools)
-- [Part 3: Application Setup](#part-3-application-setup)
-- [Part 4: Docker Deployment](#part-4-docker-deployment)
-- [Part 5: Kubernetes (EKS) Deployment](#part-5-kubernetes-eks-deployment)
-- [Part 6: CI/CD with Jenkins](#part-6-cicd-with-jenkins)
-- [Part 7: Code Quality with SonarQube](#part-7-code-quality-with-sonarqube)
-- [Part 8: Monitoring Setup](#part-8-monitoring-setup)
+- [Step 1: EC2 Instance Setup](#step-1-ec2-instance-setup)
+- [Step 2: Install Docker](#step-2-install-docker)
+- [Step 3: Install Docker Compose](#step-3-install-docker-compose)
+- [Step 4: Install Node.js](#step-4-install-nodejs)
+- [Step 5: Install AWS CLI](#step-5-install-aws-cli)
+- [Step 6: Install kubectl](#step-6-install-kubectl)
+- [Step 7: Install eksctl](#step-7-install-eksctl)
+- [Step 8: Install Java](#step-8-install-java)
+- [Step 9: Install & Configure Jenkins](#step-9-install--configure-jenkins)
+- [Step 10: Install & Configure SonarQube](#step-10-install--configure-sonarqube)
+
+### SECTION B: DEPLOYMENT
+- [Step 11: Clone & Configure Application](#step-11-clone--configure-application)
+- [Step 12: Docker Deployment](#step-12-docker-deployment)
+- [Step 13: Kubernetes (EKS) Deployment](#step-13-kubernetes-eks-deployment)
+- [Step 14: Setup CI/CD Pipeline](#step-14-setup-cicd-pipeline)
+- [Step 15: Deploy Monitoring](#step-15-deploy-monitoring)
+
+### SECTION C: REFERENCE
 - [Environment Variables](#environment-variables)
 - [Troubleshooting](#troubleshooting)
+- [Quick Reference Commands](#quick-reference-commands)
+- [Project Structure](#project-structure)
 
 ---
 
@@ -48,7 +62,13 @@ A full-stack Node.js application for image and PDF conversion, compression, and 
 
 ---
 
-## Part 1: EC2 Instance Setup
+# SECTION A: INSTALLATION & CONFIGURATION
+
+---
+
+# SECTION A: INSTALLATION & CONFIGURATION
+
+## Step 1: EC2 Instance Setup
 
 ### 1.1 Launch EC2 Instance
 
@@ -87,9 +107,7 @@ sudo dnf install -y git wget curl tar unzip vim
 
 ---
 
-## Part 2: Install Required Tools
-
-### 2.1 Install Docker
+## Step 2: Install Docker
 
 ```bash
 # Install Docker
@@ -110,7 +128,9 @@ docker --version
 docker ps
 ```
 
-### 2.2 Install Docker Compose
+---
+
+## Step 3: Install Docker Compose
 
 ```bash
 # Download Docker Compose
@@ -123,7 +143,9 @@ sudo chmod +x /usr/local/bin/docker-compose
 docker-compose --version
 ```
 
-### 2.3 Install Node.js
+---
+
+## Step 4: Install Node.js
 
 ```bash
 # Install Node.js 18
@@ -137,7 +159,9 @@ npm --version
 sudo npm install -g pm2
 ```
 
-### 2.4 Install AWS CLI v2
+---
+
+## Step 5: Install AWS CLI
 
 ```bash
 # Download AWS CLI
@@ -157,7 +181,9 @@ aws configure
 # Enter: Access Key ID, Secret Access Key, Region (us-east-1), Output format (json)
 ```
 
-### 2.5 Install kubectl
+---
+
+## Step 6: Install kubectl
 
 ```bash
 # Download kubectl
@@ -173,7 +199,9 @@ sudo mv kubectl /usr/local/bin/
 kubectl version --client
 ```
 
-### 2.6 Install eksctl
+---
+
+## Step 7: Install eksctl
 
 ```bash
 # Download eksctl
@@ -189,7 +217,9 @@ sudo mv eksctl /usr/local/bin/
 eksctl version
 ```
 
-### 2.7 Install Java (for Jenkins & SonarQube)
+---
+
+## Step 8: Install Java
 
 ```bash
 # Install Amazon Corretto 17 (OpenJDK)
@@ -201,224 +231,9 @@ java -version
 
 ---
 
-## Part 3: Application Setup
+## Step 9: Install & Configure Jenkins
 
-### 3.1 Clone Repository
-
-```bash
-# Clone your repository
-git clone <your-repo-url>
-cd Compressorr
-```
-
-### 3.2 Configure Environment Variables
-
-```bash
-# Edit .env file
-nano .env
-```
-
-**Update the following values:**
-```bash
-JWT_SECRET=your-super-secret-jwt-key-here-change-this
-SESSION_SECRET=your-super-secret-session-key-here-change-this
-GOOGLE_CLIENT_ID=your-google-client-id-if-using-oauth
-GOOGLE_CLIENT_SECRET=your-google-client-secret-if-using-oauth
-GOOGLE_CALLBACK_URL=http://your-domain-or-ip:5000/auth/google/callback
-MONGO_URI=mongodb://mongodb:27017/filetool
-PORT=5000
-NODE_ENV=production
-```
-
-### 3.3 Create Required Directories
-
-```bash
-# Create upload directories
-mkdir -p uploads/profiles
-
-# Set permissions
-chmod -R 755 uploads
-```
-
----
-
-## Part 4: Docker Deployment
-
-### 4.1 Login to DockerHub
-
-```bash
-# Login to DockerHub
-docker login
-
-# Enter username and password when prompted
-```
-
-### 4.2 Build Docker Images
-
-```bash
-# Build backend image
-docker build -f Dockerfiles/backend.Dockerfile -t saikiranasamwar4/compressor-backend:latest ./backend
-
-# Build frontend image
-docker build -f Dockerfiles/frontend.Dockerfile -t saikiranasamwar4/compressor-frontend:latest ./frontend
-```
-
-### 4.3 Push Images to DockerHub
-
-```bash
-# Push backend
-docker push saikiranasamwar4/compressor-backend:latest
-
-# Push frontend
-docker push saikiranasamwar4/compressor-frontend:latest
-```
-
-### 4.4 Run with Docker Compose
-
-```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Check running containers
-docker ps
-
-# Stop services
-docker-compose down
-```
-
-### 4.5 Verify Application
-
-```bash
-# Check backend health
-curl http://localhost:5000/api/health
-
-# Access frontend
-curl http://localhost:8080
-```
-
-**Access in browser:**
-- Frontend: `http://your-ec2-public-ip:8080`
-- Backend API: `http://your-ec2-public-ip:5001`
-
----
-
-## Part 5: Kubernetes (EKS) Deployment
-
-### 5.1 Create EKS Cluster
-
-```bash
-# Create EKS cluster (takes 15-20 minutes)
-eksctl create cluster \
-  --name compressorr-cluster \
-  --region us-east-1 \
-  --nodegroup-name compressorr-nodes \
-  --node-type t3.medium \
-  --nodes 2 \
-  --nodes-min 1 \
-  --nodes-max 3 \
-  --managed
-
-# Verify cluster
-kubectl get nodes
-```
-
-### 5.2 Create Namespace
-
-```bash
-# Create namespace
-kubectl create namespace media-app
-
-# Set as default
-kubectl config set-context --current --namespace=media-app
-```
-
-### 5.3 Create MongoDB Secret
-
-```bash
-# Create secret for MongoDB
-kubectl apply -f k8s/mongo/mongo-secret.yaml
-
-# Verify
-kubectl get secrets
-```
-
-### 5.4 Deploy MongoDB
-
-```bash
-# Deploy MongoDB StatefulSet
-kubectl apply -f k8s/mongo/mongo-statefulset.yaml
-
-# Deploy MongoDB Service
-kubectl apply -f k8s/mongo/mongo-service.yaml
-
-# Check status
-kubectl get statefulsets
-kubectl get pods
-```
-
-### 5.5 Deploy Backend
-
-```bash
-# Deploy backend
-kubectl apply -f k8s/backend/backend-deployment.yaml
-kubectl apply -f k8s/backend/backend-service.yaml
-
-# Check status
-kubectl get deployments
-kubectl get pods
-kubectl get services
-```
-
-### 5.6 Deploy Frontend
-
-```bash
-# Deploy frontend
-kubectl apply -f k8s/frontend/frontend-deployment.yaml
-kubectl apply -f k8s/frontend/frontend-service.yaml
-
-# Check all resources
-kubectl get all
-```
-
-### 5.7 Access Application
-
-```bash
-# Get LoadBalancer URL for frontend
-kubectl get service frontend-service
-
-# Note the EXTERNAL-IP
-# Access: http://<EXTERNAL-IP>
-```
-
-### 5.8 EKS Cluster Management
-
-```bash
-# View logs
-kubectl logs <pod-name>
-kubectl logs -f <pod-name>  # Follow logs
-
-# Describe resources
-kubectl describe pod <pod-name>
-kubectl describe service <service-name>
-
-# Scale deployment
-kubectl scale deployment backend --replicas=3
-
-# Update image
-kubectl set image deployment/backend backend=saikiranasamwar4/compressor-backend:v2
-
-# Delete cluster (cleanup)
-eksctl delete cluster --name compressorr-cluster --region us-east-1
-```
-
----
-
-## Part 6: CI/CD with Jenkins
-
-### 6.1 Install Jenkins
+### 9.1 Install Jenkins
 
 ```bash
 # Add Jenkins repository
@@ -438,7 +253,7 @@ sudo systemctl enable jenkins
 sudo systemctl status jenkins
 ```
 
-### 6.2 Configure Jenkins
+### 9.2 Configure Jenkins Initial Setup
 
 ```bash
 # Get initial admin password
@@ -454,7 +269,7 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 3. Create admin user
 4. Configure Jenkins URL
 
-### 6.3 Install Jenkins Plugins
+### 9.3 Install Required Jenkins Plugins
 
 **Required Plugins:**
 - Docker Pipeline
@@ -469,7 +284,7 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 2. Search and install each plugin
 3. Restart Jenkins
 
-### 6.4 Configure Jenkins Credentials
+### 9.4 Configure Jenkins Credentials
 
 **Add DockerHub Credentials:**
 1. Manage Jenkins → Credentials → System → Global credentials
@@ -484,28 +299,11 @@ sudo cat /var/lib/jenkins/secrets/initialAdminPassword
 3. Access Key ID: Your AWS access key
 4. Secret Access Key: Your AWS secret key
 
-### 6.5 Create Jenkins Pipeline
-
-1. New Item → Pipeline
-2. Name: `Compressorr-Deploy`
-3. Pipeline → Definition: Pipeline script from SCM
-4. SCM: Git
-5. Repository URL: Your repo URL
-6. Script Path: `Jenkinsfile`
-7. Save
-
-### 6.6 Run Pipeline
-
-```bash
-# Trigger build from Jenkins UI
-# Or push to GitHub to trigger automatically
-```
-
 ---
 
-## Part 7: Code Quality with SonarQube
+## Step 10: Install & Configure SonarQube
 
-### 7.1 Install SonarQube
+### 10.1 Install SonarQube
 
 ```bash
 # Create sonarqube user
@@ -538,7 +336,7 @@ EOF
 sudo sysctl -p
 ```
 
-### 7.2 Configure SonarQube Service
+### 10.2 Configure SonarQube Service
 
 ```bash
 # Create systemd service
@@ -569,7 +367,7 @@ sudo systemctl enable sonarqube
 sudo systemctl status sonarqube
 ```
 
-### 7.3 Access SonarQube
+### 10.3 Access SonarQube UI
 
 ```bash
 # Wait for startup (1-2 minutes)
@@ -580,7 +378,7 @@ sudo systemctl status sonarqube
 # Password: admin
 ```
 
-### 7.4 Configure SonarQube Project
+### 10.4 Configure SonarQube Project
 
 **In SonarQube UI:**
 1. Create new project
@@ -595,23 +393,264 @@ sudo systemctl status sonarqube
 4. Server URL: `http://localhost:9000`
 5. Add token in credentials
 
-### 7.5 Run Code Analysis
+---
+
+# SECTION B: DEPLOYMENT
+
+## Step 11: Clone & Configure Application
+
+### 11.1 Clone Repository
 
 ```bash
-# Run analysis locally
-cd /path/to/Compressorr
-docker run --rm \
-  -e SONAR_HOST_URL=http://your-ec2-public-ip:9000 \
-  -e SONAR_LOGIN=your-token \
-  -v "$(pwd):/usr/src" \
-  sonarsource/sonar-scanner-cli
+# Clone your repository
+git clone <your-repo-url>
+cd Compressorr
+```
+
+### 11.2 Configure Environment Variables
+
+```bash
+# Edit .env file
+nano .env
+```
+
+**Update the following values:**
+```bash
+JWT_SECRET=your-super-secret-jwt-key-here-change-this
+SESSION_SECRET=your-super-secret-session-key-here-change-this
+GOOGLE_CLIENT_ID=your-google-client-id-if-using-oauth
+GOOGLE_CLIENT_SECRET=your-google-client-secret-if-using-oauth
+GOOGLE_CALLBACK_URL=http://your-domain-or-ip:5000/auth/google/callback
+MONGO_URI=mongodb://mongodb:27017/filetool
+PORT=5000
+NODE_ENV=production
+```
+
+### 11.3 Create Required Directories
+
+```bash
+# Create upload directories
+mkdir -p uploads/profiles
+
+# Set permissions
+chmod -R 755 uploads
 ```
 
 ---
 
-## Part 8: Monitoring Setup
+## Step 12: Docker Deployment
 
-### 8.1 Deploy Prometheus
+### 12.1 Login to DockerHub
+
+```bash
+# Login to DockerHub
+docker login
+
+# Enter username and password when prompted
+```
+
+### 12.2 Build Docker Images
+
+```bash
+# Build backend image
+docker build -f Dockerfiles/backend.Dockerfile -t saikiranasamwar4/compressor-backend:latest ./backend
+
+# Build frontend image
+docker build -f Dockerfiles/frontend.Dockerfile -t saikiranasamwar4/compressor-frontend:latest ./frontend
+```
+
+### 12.3 Push Images to DockerHub
+
+```bash
+# Push backend
+docker push saikiranasamwar4/compressor-backend:latest
+
+# Push frontend
+docker push saikiranasamwar4/compressor-frontend:latest
+```
+
+### 12.4 Run with Docker Compose
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Check running containers
+docker ps
+
+# Stop services
+docker-compose down
+```
+
+### 12.5 Verify Application
+
+```bash
+# Check backend health
+curl http://localhost:5000/api/health
+
+# Access frontend
+curl http://localhost:8080
+```
+
+**Access in browser:**
+- Frontend: `http://your-ec2-public-ip:8080`
+- Backend API: `http://your-ec2-public-ip:5001`
+
+---
+
+## Step 13: Kubernetes (EKS) Deployment
+
+### 13.1 Create EKS Cluster
+
+```bash
+# Create EKS cluster (takes 15-20 minutes)
+eksctl create cluster \
+  --name compressorr-cluster \
+  --region us-east-1 \
+  --nodegroup-name compressorr-nodes \
+  --node-type t3.medium \
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 3 \
+  --managed
+
+# Verify cluster
+kubectl get nodes
+```
+
+### 13.2 Create Namespace
+
+```bash
+# Create namespace
+kubectl create namespace media-app
+
+# Set as default
+kubectl config set-context --current --namespace=media-app
+```
+
+### 13.3 Create MongoDB Secret
+
+```bash
+# Create secret for MongoDB
+kubectl apply -f k8s/mongo/mongo-secret.yaml
+
+# Verify
+kubectl get secrets
+```
+
+### 13.4 Deploy MongoDB
+
+```bash
+# Deploy MongoDB StatefulSet
+kubectl apply -f k8s/mongo/mongo-statefulset.yaml
+
+# Deploy MongoDB Service
+kubectl apply -f k8s/mongo/mongo-service.yaml
+
+# Check status
+kubectl get statefulsets
+kubectl get pods
+```
+
+### 13.5 Deploy Backend
+
+```bash
+# Deploy backend
+kubectl apply -f k8s/backend/backend-deployment.yaml
+kubectl apply -f k8s/backend/backend-service.yaml
+
+# Check status
+kubectl get deployments
+kubectl get pods
+kubectl get services
+```
+
+### 13.6 Deploy Frontend
+
+```bash
+# Deploy frontend
+kubectl apply -f k8s/frontend/frontend-deployment.yaml
+kubectl apply -f k8s/frontend/frontend-service.yaml
+
+# Check all resources
+kubectl get all
+```
+
+### 13.7 Access Application
+
+```bash
+# Get LoadBalancer URL for frontend
+kubectl get service frontend-service
+
+# Note the EXTERNAL-IP
+# Access: http://<EXTERNAL-IP>
+```
+
+### 13.8 EKS Cluster Management
+
+```bash
+# View logs
+kubectl logs <pod-name>
+kubectl logs -f <pod-name>  # Follow logs
+
+# Describe resources
+kubectl describe pod <pod-name>
+kubectl describe service <service-name>
+
+# Scale deployment
+kubectl scale deployment backend --replicas=3
+
+# Update image
+kubectl set image deployment/backend backend=saikiranasamwar4/compressor-backend:v2
+
+# Delete cluster (cleanup)
+eksctl delete cluster --name compressorr-cluster --region us-east-1
+```
+
+---
+
+## Step 14: Setup CI/CD Pipeline
+
+### 14.1 Create Jenkins Pipeline
+
+1. Open Jenkins UI: `http://your-ec2-public-ip:8080`
+2. Click **New Item**
+3. Name: `Compressorr-Deploy`
+4. Select **Pipeline**
+5. Click **OK**
+
+### 14.2 Configure Pipeline
+
+1. **Pipeline** section:
+   - Definition: **Pipeline script from SCM**
+   - SCM: **Git**
+   - Repository URL: Your repository URL
+   - Credentials: Add if private repo
+   - Branch: `*/main`
+   - Script Path: `Jenkinsfile`
+2. Click **Save**
+
+### 14.3 Run Pipeline
+
+```bash
+# Trigger build from Jenkins UI by clicking "Build Now"
+# Or push code to GitHub to trigger automatically
+```
+
+### 14.4 Monitor Pipeline Execution
+
+1. Click on build number (#1, #2, etc.)
+2. Click **Console Output** to view logs
+3. Monitor stages: Checkout → Build → Push → Deploy
+
+---
+
+## Step 15: Deploy Monitoring
+
+### 15.1 Deploy Prometheus
 
 ```bash
 # Create Prometheus config
@@ -624,7 +663,7 @@ kubectl apply -f k8s/monitoring/prometheus-deployment.yaml
 kubectl get pods -l app=prometheus
 ```
 
-### 8.2 Deploy Grafana
+### 15.2 Deploy Grafana
 
 ```bash
 # Deploy Grafana
@@ -637,7 +676,7 @@ kubectl get service grafana
 # Default credentials: admin/admin
 ```
 
-### 8.3 Configure Grafana
+### 15.3 Configure Grafana Data Source
 
 **Add Prometheus Data Source:**
 1. Login to Grafana
@@ -652,7 +691,7 @@ kubectl get service grafana
 3. Select Prometheus data source
 4. Import
 
-### 8.4 View Metrics
+### 15.4 View Metrics & Dashboards
 
 **Access Prometheus:**
 - URL: `http://<prometheus-external-ip>:9090`
@@ -666,6 +705,8 @@ kubectl get service grafana
 - View imported Compressorr dashboard
 
 ---
+
+# SECTION C: REFERENCE
 
 ## Environment Variables
 
