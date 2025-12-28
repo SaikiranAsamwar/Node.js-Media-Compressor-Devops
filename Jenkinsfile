@@ -145,30 +145,31 @@ pipeline {
     // ============================================
     // STAGE 6: HEALTH CHECK - Verify Deployment
     // ============================================
-   stage(stage('Post-Deployment Health Check') {
-    steps {
-        withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-credentials'
-        ]]) {
-            sh '''
-              kubectl -n media-app get pods -l app=backend
-              kubectl -n media-app get pods -l app=frontend
-            '''
+   stages {
+        stage('Post-Deployment Health Check') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'aws-credentials'
+                ]]) {
+                    sh '''
+                      kubectl -n media-app get pods -l app=backend
+                      kubectl -n media-app get pods -l app=frontend
+                    '''
+                }
+            }
         }
     }
-}
 
-
-  post {
-    always {
-      sh 'docker logout || true'
+    post {
+        always {
+            sh 'docker logout || true'
+        }
+        success {
+            echo '✅ Pipeline executed successfully. Deployment is healthy.'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check logs for details.'
+        }
     }
-    success {
-      echo '✅ Pipeline executed successfully. Deployment is healthy.'
-    }
-    failure {
-      echo '❌ Pipeline failed. Check logs for details.'
-    }
-  }
 }
