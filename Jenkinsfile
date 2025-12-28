@@ -86,7 +86,7 @@ pipeline {
               -t ${DOCKERHUB_BACKEND}:${BUILD_NUMBER} \
               -t ${DOCKERHUB_BACKEND}:latest .
             docker push ${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
-            // docker push ${DOCKERHUB_BACKEND}:latest
+            docker push ${DOCKERHUB_BACKEND}:latest
           """
         }
         echo '✅ Backend image pushed to DockerHub'
@@ -99,7 +99,7 @@ pipeline {
               -t ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER} \
               -t ${DOCKERHUB_FRONTEND}:latest .
             docker push ${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
-            docker push ${DOCKERHUB_FRONTEND}:latest
+            // docker push ${DOCKERHUB_FRONTEND}:latest
           """
         }
         echo '✅ Frontend image pushed to DockerHub'
