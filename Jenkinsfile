@@ -7,7 +7,7 @@ pipeline {
     DOCKERHUB_FRONTEND = "${DOCKERHUB_USERNAME}/compressor-frontend"
 
     AWS_REGION  = 'us-east-1'
-    EKS_CLUSTER = 'media-compressor-cluster'
+    EKS_CLUSTER = 'compressor-cluster'
     NAMESPACE   = 'media-app'
   }
 
