@@ -29,7 +29,7 @@ exports.handleImage = async (req, res) => {
     // Get conversion options from request
     const format = req.body.format || 'jpeg';
     const level = req.body.level || 'maximum';
-    const quality = req.body.quality ? parseInt(req.body.quality) : null;
+    const quality = req.body.quality ? Number.parseInt(req.body.quality) : null;
 
     const jobId = uuidv4();
     const originalSize = file.size;
@@ -502,10 +502,10 @@ exports.updateUserSettings = async (req, res) => {
 
     user.settings = {
       defaultQuality: defaultQuality || user.settings.defaultQuality || 'medium',
-      autoDownload: autoDownload !== undefined ? autoDownload : user.settings.autoDownload,
-      keepOriginal: keepOriginal !== undefined ? keepOriginal : user.settings.keepOriginal,
-      emailNotifications: emailNotifications !== undefined ? emailNotifications : user.settings.emailNotifications,
-      compressionAlerts: compressionAlerts !== undefined ? compressionAlerts : user.settings.compressionAlerts
+      autoDownload: autoDownload === undefined ? user.settings.autoDownload : autoDownload,
+      keepOriginal: keepOriginal === undefined ? user.settings.keepOriginal : keepOriginal,
+      emailNotifications: emailNotifications === undefined ? user.settings.emailNotifications : emailNotifications,
+      compressionAlerts: compressionAlerts === undefined ? user.settings.compressionAlerts : compressionAlerts
     };
 
     await user.save();

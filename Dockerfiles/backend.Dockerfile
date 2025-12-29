@@ -9,18 +9,18 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY package*.json ./
+COPY backend/package*.json ./
 RUN npm ci
 
 # Copy source code and build (if build script exists)
-COPY . .
+COPY backend/ .
 RUN npm run build || true    # || true prevents failure if build script doesn't exist
 
 # ---------- STAGE 2: Runtime ----------
 FROM node:18-alpine
 WORKDIR /app
 
-COPY package*.json ./
+COPY backend/package*.json ./
 RUN npm ci --only=production
 
 # Copy built application from builder

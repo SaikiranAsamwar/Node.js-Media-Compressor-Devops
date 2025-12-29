@@ -58,7 +58,7 @@ function displayUserData(user) {
   if (navUsername) navUsername.textContent = user.username;
   if (userAvatar) {
     if (user.profilePicture) {
-      userAvatar.innerHTML = `<img src="http://localhost:5000${user.profilePicture}" alt="${user.username}">`;
+      userAvatar.innerHTML = `<img src="${user.profilePicture}" alt="${user.username}">`;
     } else {
       userAvatar.textContent = user.username.charAt(0).toUpperCase();
     }
@@ -93,7 +93,7 @@ function displayUserData(user) {
   const profileImage = document.getElementById('profileImage');
   
   if (user.profilePicture) {
-    profileImage.src = `http://localhost:5000${user.profilePicture}`;
+    profileImage.src = `${user.profilePicture}`;
     profileImage.classList.remove('hidden');
     avatarInitial.classList.add('hidden');
   } else {
@@ -125,7 +125,7 @@ async function loadStatistics() {
     const totalFiles = jobs.length;
     const totalSaved = jobs.reduce((sum, job) => {
       const saved = job.originalSize - job.compressedSize;
-      return sum + (saved > 0 ? saved : 0);
+      return sum + Math.max(saved, 0);
     }, 0);
 
     // Files this month
@@ -260,12 +260,12 @@ document.getElementById('photoInput')?.addEventListener('change', async (e) => {
     const avatarInitial = document.getElementById('avatarInitial');
     const userAvatar = document.getElementById('userAvatar');
 
-    profileImage.src = `http://localhost:5000${data.profilePicture}`;
+    profileImage.src = `${data.profilePicture}`;
     profileImage.classList.remove('hidden');
     avatarInitial.classList.add('hidden');
     
     if (userAvatar) {
-      userAvatar.innerHTML = `<img src="http://localhost:5000${data.profilePicture}" alt="${userData.username}">`;
+      userAvatar.innerHTML = `<img src="${data.profilePicture}" alt="${userData.username}">`;
     }
 
     userData.profilePicture = data.profilePicture;
@@ -356,7 +356,7 @@ document.getElementById('connectGoogleBtn')?.addEventListener('click', async () 
     }
   } else {
     // Connect Google
-    window.location.href = 'http://localhost:5000/auth/google';
+    globalThis.location.href = 'http://localhost:5000/auth/google';
   }
 });
 
@@ -453,5 +453,5 @@ document.getElementById('logoutBtn')?.addEventListener('click', () => {
 });
 
 // Initialize
-loadUserData();
+await loadUserData();
 

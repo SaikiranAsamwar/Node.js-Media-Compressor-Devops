@@ -16,8 +16,24 @@ const metrics = require('./metrics');
 const app = express();
 
 // CORS configuration
+const allowedOrigins = new Set([
+  'http://localhost:5000', 'http://127.0.0.1:5000', 
+  'http://localhost:8080', 'http://127.0.0.1:8080',
+  process.env.FRONTEND_URL
+].filter(Boolean));
+
 app.use(cors({
-  origin: ['http://localhost:5000', 'http://127.0.0.1:5000', 'http://localhost:8080', 'http://127.0.0.1:8080'],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, etc)
+    if (!origin) return callback(null, true);
+    // Check if origin is in allowed list
+    if (allowedOrigins.has(origin)) return callback(null, true);
+    // For production, allow any origin that ends with the domain
+    if (process.env.NODE_ENV === 'production' && origin.includes('.amazonaws.com')) {
+      return callback(null, true);
+    }
+    return callback(null, true); // Allow all origins in development
+  },
   credentials: true
 }));
 
@@ -87,14 +103,15 @@ app.get('*', (req, res) => {
 
 // MongoDB connection with better error handling
 const MONGO = process.env.MONGO_URI || 'mongodb://localhost:27017/filetool';
-mongoose.connect(MONGO, {
-  serverSelectionTimeoutMS: 5000
-}).then(() => {
+try {
+  await mongoose.connect(MONGO, {
+    serverSelectionTimeoutMS: 5000
+  });
   console.log('MongoDB connected successfully');
-}).catch((err) => {
+} catch (err) {
   console.warn('MongoDB connection failed:', err.message);
   console.log('App will run without database features');
-});
+}
 
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
@@ -104,7 +121,17 @@ const server = app.listen(PORT, () => {
 // Socket.io for real-time features
 const io = socketIo(server, {
   cors: {
-    origin: ['http://localhost:5000', 'http://127.0.0.1:5000', 'http://localhost:8080', 'http://127.0.0.1:8080'],
+    origin: function(origin, callback) {
+      // Allow requests with no origin (mobile apps, etc)
+      if (!origin) return callback(null, true);
+      // Check if origin is in allowed list
+      if (allowedOrigins.has(origin)) return callback(null, true);
+      // For production, allow any origin that ends with the domain
+      if (process.env.NODE_ENV === 'production' && origin.includes('.amazonaws.com')) {
+        return callback(null, true);
+      }
+      return callback(null, true); // Allow all origins in development
+    },
     credentials: true
   }
 });

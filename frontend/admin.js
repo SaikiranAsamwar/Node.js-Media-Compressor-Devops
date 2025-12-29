@@ -10,7 +10,7 @@ let users = [];
 
 // Initialize Socket.io connection
 function initializeSocket() {
-  socket = io('http://localhost:5000', {
+  socket = io(globalThis.location.origin, {
     auth: {
       token: token
     }

@@ -16,23 +16,31 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: backend
-        image: saikiranasamwar4/compressor-backend:v1.0
+        image: saikiranasamwar4/compressor-backend:v1.1
         ports:
           - containerPort: 5000
         resources:
           requests:
             memory: "256Mi"
             cpu: "250m"
+            ephemeral-storage: "1Gi"
           limits:
             memory: "512Mi"
             cpu: "500m"
+            ephemeral-storage: "2Gi"
         env:
           - name: MONGO_URI
             value: "mongodb://mongo.media-app.svc.cluster.local:27017/filetool"
           - name: JWT_SECRET
-            value: "your-k8s-jwt-secret-change-this"
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: jwt-secret
           - name: SESSION_SECRET
-            value: "your-k8s-session-secret-change-this"
+            valueFrom:
+              secretKeyRef:
+                name: backend-secrets
+                key: session-secret
           - name: PORT
             value: "5000"
           - name: NODE_ENV

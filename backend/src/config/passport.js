@@ -5,7 +5,7 @@ const User = require('../models/User');
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID || 'your-client-id.apps.googleusercontent.com',
   clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'your-client-secret',
-  callbackURL: 'http://localhost:5000/auth/google/callback'
+  callbackURL: process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback'
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     // Check if user already exists
@@ -21,7 +21,7 @@ passport.use(new GoogleStrategy({
     if (user) {
       // Link Google account to existing user
       user.googleId = profile.id;
-      if (profile.photos && profile.photos[0]) {
+      if (profile.photos?.[0]) {
         user.profilePicture = profile.photos[0].value;
       }
       await user.save();
@@ -33,7 +33,7 @@ passport.use(new GoogleStrategy({
       username: profile.displayName || profile.emails[0].value.split('@')[0],
       email: profile.emails[0].value,
       googleId: profile.id,
-      profilePicture: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+      profilePicture: profile.photos?.[0]?.value || null,
       role: 'user'
     });
 

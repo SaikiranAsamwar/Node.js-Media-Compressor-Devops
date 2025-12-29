@@ -5,16 +5,16 @@ const path = require('node:path');
 
 // Compression quality levels with accurate size reduction targets
 const QUALITY_LEVELS = {
-  low: { quality: 50, resize: 1280, targetReduction: 0.70 }, // ~70% size reduction
-  medium: { quality: 65, resize: 1920, targetReduction: 0.50 }, // ~50% size reduction
-  high: { quality: 80, resize: 2560, targetReduction: 0.30 }, // ~30% size reduction
+  low: { quality: 50, resize: 1280, targetReduction: 0.7 }, // ~70% size reduction
+  medium: { quality: 65, resize: 1920, targetReduction: 0.5 }, // ~50% size reduction
+  high: { quality: 80, resize: 2560, targetReduction: 0.3 }, // ~30% size reduction
   maximum: { quality: 95, resize: null, targetReduction: 0 } // No reduction, preserve quality
 };
 
 // Decompression/Quality restoration levels
 const RESTORE_LEVELS = {
   enhance: { quality: 100, resize: null, upscale: 1.5 },
-  restore: { quality: 100, resize: null, upscale: 1.0 },
+  restore: { quality: 100, resize: null, upscale: 1 },
   maximum: { quality: 100, resize: null, upscale: null }
 };
 
@@ -68,7 +68,6 @@ async function estimateCompressedSize(inputPath, options = {}) {
 async function convertImage(inputPath, outputPath, options = {}) {
   const {
     format = 'jpeg',
-    quality = 95, // High quality for conversion
     level = 'maximum',
     width,
     height
