@@ -1,13 +1,12 @@
 // Admin Dashboard JavaScript
 const token = localStorage.getItem('token');
 if (!token) {
-  window.location.href = '/login';
+  globalThis.location.href = '/login';
 }
 
 let socket;
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 let users = [];
-let activityLog = [];
 
 // Initialize Socket.io connection
 function initializeSocket() {
@@ -159,10 +158,8 @@ function addActivityLog(message, type, data) {
 
   // Keep only last 50 items
   while (activityFeed.children.length > 50) {
-    activityFeed.removeChild(activityFeed.lastChild);
+    activityFeed.lastChild.remove();
   }
-
-  activityLog.push({ message, type, data, timestamp });
 }
 
 // View user details
@@ -218,13 +215,13 @@ function escapeHtml(text) {
     '"': '&quot;',
     "'": '&#039;'
   };
-  return text.replace(/[&<>"']/g, m => map[m]);
+  return text.replaceAll(/[&<>"']/g, m => map[m]);
 }
 
 // Logout
 document.getElementById('logoutBtn')?.addEventListener('click', () => {
   localStorage.removeItem('token');
-  window.location.href = '/login';
+  globalThis.location.href = '/login';
 });
 
 // Profile dropdown toggle
@@ -245,7 +242,6 @@ document.getElementById('userSearch')?.addEventListener('input', filterUsers);
 document.getElementById('roleFilter')?.addEventListener('change', filterUsers);
 document.getElementById('clearActivityBtn')?.addEventListener('click', () => {
   document.getElementById('activityFeed').innerHTML = '<div class="activity-item empty"><p>No recent activity</p></div>';
-  activityLog = [];
 });
 
 // Initialize

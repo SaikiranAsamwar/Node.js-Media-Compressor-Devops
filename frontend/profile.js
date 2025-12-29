@@ -1,16 +1,16 @@
 // API URL
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 
 // Check authentication
 const token = localStorage.getItem('token');
 if (!token) {
-  window.location.href = '/login';
+  globalThis.location.href = '/login';
 }
 
 let userData = null;
 
 // Wait for authentication from common.js
-window.addEventListener('userAuthenticated', (event) => {
+globalThis.addEventListener('userAuthenticated', (event) => {
   userData = event.detail;
   updateProfileUI();
 });
@@ -28,7 +28,7 @@ async function loadUserData() {
     if (!response.ok) {
       if (response.status === 401) {
         localStorage.removeItem('token');
-        window.location.href = '/login';
+        globalThis.location.href = '/login';
         return;
       }
       throw new Error('Failed to load user data');
@@ -137,7 +137,7 @@ async function loadStatistics() {
 
     // Update display
     document.getElementById('totalFilesProcessed').textContent = totalFiles;
-    document.getElementById('totalSpaceSaved').textContent = (totalSaved / (1024 * 1024)).toFixed(2) + ' MB';
+    document.getElementById('totalSpaceSaved').textContent = Math.max(totalSaved / (1024 * 1024), 0).toFixed(2) + ' MB';
     document.getElementById('filesThisMonth').textContent = thisMonth;
   } catch (error) {
     console.error('Error loading statistics:', error);
@@ -145,13 +145,13 @@ async function loadStatistics() {
 }
 
 // Edit field (make it global)
-window.editField = function(field) {
+globalThis.editField = function(field) {
   document.querySelector(`#display${field.charAt(0).toUpperCase() + field.slice(1)}`).parentElement.classList.add('hidden');
   document.getElementById(`edit${field.charAt(0).toUpperCase() + field.slice(1)}`).classList.remove('hidden');
 }
 
 // Cancel edit (make it global)
-window.cancelEdit = function(field) {
+globalThis.cancelEdit = function(field) {
   document.getElementById(`edit${field.charAt(0).toUpperCase() + field.slice(1)}`).classList.add('hidden');
   document.querySelector(`#display${field.charAt(0).toUpperCase() + field.slice(1)}`).parentElement.classList.remove('hidden');
   
@@ -164,7 +164,7 @@ window.cancelEdit = function(field) {
 }
 
 // Save field (make it global)
-window.saveField = async function(field) {
+globalThis.saveField = async function(field) {
   const value = document.getElementById(`input${field.charAt(0).toUpperCase() + field.slice(1)}`).value.trim();
   
   if (!value) {
@@ -294,13 +294,13 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
   const confirmPassword = document.getElementById('confirmPassword').value;
 
   // Validate passwords match
-  if (newPassword !== confirmPassword) {
+  if (newPassword === confirmPassword) {
+    document.getElementById('confirmPassword').setCustomValidity('');
+  } else {
     showPasswordMessage('error', 'New passwords do not match');
     document.getElementById('confirmPassword').setCustomValidity('Passwords do not match');
     form.classList.add('was-validated');
     return;
-  } else {
-    document.getElementById('confirmPassword').setCustomValidity('');
   }
 
   try {
@@ -361,7 +361,7 @@ document.getElementById('connectGoogleBtn')?.addEventListener('click', async () 
 });
 
 // Clear history (make it global)
-window.clearHistory = async function() {
+globalThis.clearHistory = async function() {
   if (!confirm('Are you sure you want to clear all your file history? This action cannot be undone.')) {
     return;
   }
@@ -385,7 +385,7 @@ window.clearHistory = async function() {
 }
 
 // Delete account (make it global)
-window.deleteAccount = async function() {
+globalThis.deleteAccount = async function() {
   const confirmation = prompt('This will permanently delete your account and all data. Type "DELETE" to confirm:');
   
   if (confirmation !== 'DELETE') {
@@ -404,7 +404,7 @@ window.deleteAccount = async function() {
 
     localStorage.removeItem('token');
     alert('Your account has been deleted successfully');
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
   } catch (error) {
     console.error('Error deleting account:', error);
     showMessage('error', 'Failed to delete account');
@@ -449,7 +449,7 @@ function showPasswordMessage(type, message) {
 // Logout
 document.getElementById('logoutBtn')?.addEventListener('click', () => {
   localStorage.removeItem('token');
-  window.location.href = '/login';
+  globalThis.location.href = '/login';
 });
 
 // Initialize

@@ -1,5 +1,5 @@
 // Image Converter Page JavaScript
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 
 // Check authentication
 function checkAuth() {
@@ -7,7 +7,7 @@ function checkAuth() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   
   if (!token || !user) {
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
     return null;
   }
   
@@ -48,7 +48,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/login';
+  globalThis.location.href = '/login';
 });
 
 // Utility functions
@@ -62,11 +62,12 @@ function formatFileSize(bytes) {
 
 // Image Converter Handler
 class ImageConverter {
+  file = null;
+  fileFormat = null;
+  downloadUrl = null;
+  filename = null;
+  
   constructor() {
-    this.file = null;
-    this.fileFormat = null;
-    this.downloadUrl = null;
-    this.filename = null;
     
     this.dropZone = document.getElementById('convertDropZone');
     this.input = document.getElementById('convertInput');
@@ -214,7 +215,7 @@ class ImageConverter {
     a.download = this.filename;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
   }
 }
 

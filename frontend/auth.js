@@ -2,7 +2,7 @@
 // AUTHENTICATION SYSTEM - FRONTEND
 // ============================================
 
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 
 // Utility: Store authentication data
 function storeAuthData(token, user) {
@@ -83,7 +83,7 @@ async function handleLogin(email, password) {
     
     // Redirect to dashboard
     console.log('→ Redirecting to dashboard...');
-    window.location.href = '/dashboard';
+    globalThis.location.href = '/dashboard';
     
   } catch (error) {
     console.error('✗ Login error:', error.message);
@@ -127,7 +127,7 @@ async function handleSignup(username, email, password) {
     showSuccess('successMessage', 'Account created successfully! Redirecting...');
     
     setTimeout(() => {
-      window.location.href = '/dashboard';
+      globalThis.location.href = '/dashboard';
     }, 1000);
     
   } catch (error) {
@@ -143,11 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('→ Auth system initialized');
 
   // Handle OAuth callback
-  const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(globalThis.location.search);
   const tokenParam = urlParams.get('token');
   if (tokenParam) {
     localStorage.setItem('token', tokenParam);
-    window.location.href = '/dashboard';
+    globalThis.location.href = '/dashboard';
     return;
   }
 

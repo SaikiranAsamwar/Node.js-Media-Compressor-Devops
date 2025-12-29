@@ -1,5 +1,5 @@
 // Main Application JavaScript
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 
 // Check authentication
 function checkAuth() {
@@ -7,7 +7,7 @@ function checkAuth() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   
   if (!token || !user) {
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
     return null;
   }
   
@@ -16,7 +16,7 @@ function checkAuth() {
 
 // Handle card filtering based on URL hash
 function handleCardFiltering() {
-  const hash = window.location.hash.substring(1); // Remove the # symbol
+  const hash = globalThis.location.hash.substring(1); // Remove the # symbol
   const cards = document.querySelectorAll('.card[data-card]');
   
   // Update page title based on hash
@@ -86,8 +86,8 @@ function handleCardFiltering() {
 }
 
 // Call on page load and hash change
-window.addEventListener('load', handleCardFiltering);
-window.addEventListener('hashchange', handleCardFiltering);
+globalThis.addEventListener('load', handleCardFiltering);
+globalThis.addEventListener('hashchange', handleCardFiltering);
 
 // Initialize app
 const auth = checkAuth();
@@ -108,7 +108,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/login';
+  globalThis.location.href = '/login';
 });
 
 // Utility functions
@@ -127,11 +127,12 @@ function calculateSavings(original, compressed) {
 
 // Image Converter Handler
 class ImageConverter {
+  file = null;
+  fileFormat = null;
+  downloadUrl = null;
+  filename = null;
+  
   constructor() {
-    this.file = null;
-    this.fileFormat = null;
-    this.downloadUrl = null;
-    this.filename = null;
     
     // Elements
     this.dropZone = document.getElementById('convertDropZone');
@@ -284,16 +285,17 @@ class ImageConverter {
     a.download = this.filename;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
   }
 }
 
 // Image Compressor Handler
 class ImageCompressor {
+  file = null;
+  downloadUrl = null;
+  filename = null;
+  
   constructor() {
-    this.file = null;
-    this.downloadUrl = null;
-    this.filename = null;
     
     // Elements
     this.dropZone = document.getElementById('imageDropZone');
@@ -427,16 +429,17 @@ class ImageCompressor {
     a.download = this.filename;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
   }
 }
 
 // Image Restorer Handler (Reverse Compression)
 class ImageRestorer {
+  file = null;
+  downloadUrl = null;
+  filename = null;
+  
   constructor() {
-    this.file = null;
-    this.downloadUrl = null;
-    this.filename = null;
     
     // Elements
     this.dropZone = document.getElementById('restoreDropZone');
@@ -551,16 +554,17 @@ class ImageRestorer {
     a.download = this.filename;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
   }
 }
 
 // PDF Compressor Handler
 class PdfCompressor {
+  file = null;
+  downloadUrl = null;
+  filename = null;
+  
   constructor() {
-    this.file = null;
-    this.downloadUrl = null;
-    this.filename = null;
     
     // Elements
     this.dropZone = document.getElementById('pdfDropZone');
@@ -676,7 +680,7 @@ class PdfCompressor {
     a.download = this.filename;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
   }
 }
 

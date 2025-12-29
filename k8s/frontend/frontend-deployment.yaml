@@ -16,7 +16,7 @@ spec:
       automountServiceAccountToken: false
       containers:
       - name: frontend
-        image: saikiranasamwar4/compressor-frontend:v1.0
+        image: saikiranasamwar4/compressor-frontend:v1.1
         ports:
           - containerPort: 80
         livenessProbe:
@@ -38,6 +38,8 @@ spec:
           requests:
             memory: "128Mi"
             cpu: "100m"
+            ephemeral-storage: "1Gi"
           limits:
             memory: "256Mi"
             cpu: "200m"
+            ephemeral-storage: "2Gi"

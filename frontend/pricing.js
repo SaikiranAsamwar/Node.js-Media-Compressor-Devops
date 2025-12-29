@@ -1,5 +1,5 @@
 // Pricing Page JavaScript
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 
 // Check authentication
 function checkAuth() {
@@ -7,7 +7,7 @@ function checkAuth() {
   const user = JSON.parse(localStorage.getItem('user') || 'null');
   
   if (!token || !user) {
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
     return null;
   }
   
@@ -48,6 +48,6 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   
   localStorage.removeItem('token');
   localStorage.removeItem('user');
-  window.location.href = '/login';
+  globalThis.location.href = '/login';
 });
 

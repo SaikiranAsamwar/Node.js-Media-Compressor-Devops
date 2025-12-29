@@ -1,10 +1,10 @@
 // ============================================
 // DASHBOARD PAGE
 // ============================================
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 
 // Wait for common.js to complete authentication
-window.addEventListener('userAuthenticated', (event) => {
+globalThis.addEventListener('userAuthenticated', (event) => {
   console.log('→ Dashboard: User authenticated event received');
   const user = event.detail;
   
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('token');
   if (!token) {
     console.log('✗ Dashboard: No token, redirecting to login');
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
     return;
   }
   
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           console.error('✗ Dashboard: Fallback auth failed');
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          window.location.href = '/login';
+          globalThis.location.href = '/login';
         }
       } catch (error) {
         console.error('✗ Dashboard: Fallback auth error:', error);

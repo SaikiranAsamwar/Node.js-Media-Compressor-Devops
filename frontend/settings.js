@@ -1,5 +1,5 @@
 // Theme Management
-const API_URL = 'http://localhost:5000';
+const API_URL = '';
 let currentTheme = localStorage.getItem('theme') || 'auto';
 
 // Initialize theme on page load
@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Check token first
   const token = localStorage.getItem('token');
   if (!token) {
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
     return;
   }
   
@@ -30,11 +30,11 @@ function applyTheme(theme) {
   const html = document.documentElement;
   
   if (theme === 'dark') {
-    html.setAttribute('data-theme', 'dark');
+    html.dataset.theme = 'dark';
   } else if (theme === 'light') {
-    html.setAttribute('data-theme', 'light');
+    html.dataset.theme = 'light';
   } else {
-    html.removeAttribute('data-theme');
+    delete html.dataset.theme;
   }
   
   localStorage.setItem('theme', theme);
@@ -224,7 +224,7 @@ async function deleteAccount() {
       localStorage.clear();
       showNotification('Account deleted successfully', 'success');
       setTimeout(() => {
-        window.location.href = '/login';
+        globalThis.location.href = '/login';
       }, 2000);
     } else {
       throw new Error('Failed to delete account');
@@ -247,14 +247,14 @@ async function exportData() {
 
     if (response.ok) {
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = globalThis.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `filecompressor-data-${Date.now()}.json`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      globalThis.URL.revokeObjectURL(url);
+      a.remove();
       
       showNotification('Data exported successfully!', 'success');
     } else {
@@ -271,7 +271,7 @@ function logout() {
   localStorage.removeItem('token');
   showNotification('Logged out successfully', 'success');
   setTimeout(() => {
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
   }, 1000);
 }
 
@@ -281,12 +281,21 @@ function showNotification(message, type = 'info') {
   notification.className = `notification notification-${type}`;
   notification.textContent = message;
   
+  let backgroundColor;
+  if (type === 'success') {
+    backgroundColor = '#10b981';
+  } else if (type === 'error') {
+    backgroundColor = '#ef4444';
+  } else {
+    backgroundColor = '#4f46e5';
+  }
+  
   notification.style.cssText = `
     position: fixed;
     top: 20px;
     right: 20px;
     padding: 1rem 1.5rem;
-    background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#4f46e5'};
+    background: ${backgroundColor};
     color: white;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

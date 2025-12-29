@@ -1625,17 +1625,17 @@ chmod +x scripts/rebuild-frontend.sh
 **Solution 2: Manual fix steps**
 ```bash
 # 1. Rebuild the Docker image
-docker build -f Dockerfiles/frontend.Dockerfile -t saikiranasamwar4/compressor-frontend:v1.0 .
+docker build -f Dockerfiles/frontend.Dockerfile -t saikiranasamwar4/compressor-frontend:v1.1 .
 
 # 2. Test locally first
-docker run -d --name test-frontend -p 8080:80 saikiranasamwar4/compressor-frontend:v1.0
+docker run -d --name test-frontend -p 8080:80 saikiranasamwar4/compressor-frontend:v1.1
 
 # 3. Verify it works
 curl http://localhost:8080/health
 curl http://localhost:8080/  # Should show your HTML, not nginx default
 
 # 4. If test passes, push to Docker Hub
-docker push saikiranasamwar4/compressor-frontend:v1.0
+docker push saikiranasamwar4/compressor-frontend:v1.1
 
 # 5. Delete existing pods to pull new image
 kubectl delete pods -n media-app -l app=frontend
@@ -1792,6 +1792,33 @@ tail -f /opt/sonarqube/logs/sonar.log
 ```
 
 ### Application Issues
+
+**Problem: Application flickering or infinite loading loop**
+
+This occurs when the frontend JavaScript has hardcoded API URLs that don't work in the deployed environment.
+
+**Symptoms:**
+- Page loads but keeps redirecting
+- Authentication checks fail repeatedly
+- Browser console shows failed network requests to localhost
+
+**Root Cause:**
+Frontend JavaScript files contain hardcoded `http://localhost:5000` API URLs which don't work when deployed to Kubernetes.
+
+**Solution:**
+```bash
+# This has been fixed in v1.1+ - all API URLs now use relative paths
+# If you're still experiencing this issue, ensure you're using the latest image:
+
+# 1. Check current deployment image
+kubectl get deployment frontend -n media-app -o jsonpath='{.spec.template.spec.containers[0].image}'
+
+# 2. If not v1.1+, update to latest
+kubectl set image deployment/frontend frontend=saikiranasamwar4/compressor-frontend:v1.1 -n media-app
+
+# 3. Verify rollout
+kubectl rollout status deployment/frontend -n media-app
+```
 
 **Problem: 502 Bad Gateway**
 ```bash
