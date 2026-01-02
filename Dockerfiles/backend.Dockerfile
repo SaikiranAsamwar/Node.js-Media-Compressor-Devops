@@ -1,7 +1,6 @@
 # ------------------------------------------------------------
 # BACKEND DOCKERFILE
-# Multi-stage Dockerfile for Node.js backend application.
-# First stage builds dependencies, second stage runs production.
+# Multi-stage Dockerfile for Node.js backend application
 # ------------------------------------------------------------
 
 # ---------- STAGE 1: Builder ----------
@@ -12,18 +11,16 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Copy source code and build (if build script exists)
+# Copy source code
 COPY . .
-RUN npm run build || true    # || true prevents failure if build script doesn't exist
+RUN npm run build || true
+
 
 # ---------- STAGE 2: Runtime ----------
 FROM node:18-alpine
 WORKDIR /app
 
-COPY backend/package*.json ./
-RUN npm ci --only=production
-
-# Copy built application from builder
+# Copy built app and node_modules from builder
 COPY --from=builder /app ./
 
 EXPOSE 5000
