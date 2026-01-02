@@ -9,7 +9,7 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY backend/package*.json ./
+COPY package*.json ./
 RUN npm ci
 
 # Copy source code and build (if build script exists)
