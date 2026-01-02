@@ -115,21 +115,24 @@ pipeline {
     // STAGE 5: UPDATE IMAGES
     // ===============================
     stage('Update Container Images') {
-      steps {
-        echo '🔄 Updating deployments...'
+  steps {
+    withCredentials([[
+      $class: 'AmazonWebServicesCredentialsBinding',
+      credentialsId: 'aws-credentials'
+    ]]) {
+      sh """
+        aws eks update-kubeconfig --name compressor-cluster --region us-east-1
 
-        sh """
-          kubectl -n ${NAMESPACE} set image deployment/backend \
-            backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
+        kubectl -n media-app set image deployment/backend \
+          backend=saikiranasamwar4/compressor-backend:${BUILD_NUMBER}
 
-          kubectl -n ${NAMESPACE} set image deployment/frontend \
-            frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
-
-          kubectl -n ${NAMESPACE} rollout status deployment/backend --timeout=300s
-          kubectl -n ${NAMESPACE} rollout status deployment/frontend --timeout=300s
-        """
-      }
+        kubectl -n media-app set image deployment/frontend \
+          frontend=saikiranasamwar4/compressor-frontend:${BUILD_NUMBER}
+      """
     }
+  }
+}
+
 
     // ===============================
     // STAGE 6: HEALTH CHECK
