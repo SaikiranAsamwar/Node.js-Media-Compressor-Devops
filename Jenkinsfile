@@ -41,7 +41,7 @@ pipeline {
           """
         }
 
-        echo '⚠️ Sonar completed (pipeline will continue even if it fails)'
+        echo '⚠️ Sonar completed (pipeline continues)'
       }
     }
 
@@ -87,7 +87,7 @@ pipeline {
     }
 
     // ===============================
-    // STAGE 4: KUBERNETES DEPLOY
+    // STAGE 4: APPLY K8S MANIFESTS
     // ===============================
     stage('Apply Kubernetes Manifests') {
       steps {
@@ -112,36 +112,45 @@ pipeline {
     }
 
     // ===============================
-    // STAGE 5: UPDATE IMAGES
+    // STAGE 5: UPDATE CONTAINER IMAGES
     // ===============================
     stage('Update Container Images') {
-  steps {
-    withCredentials([[
-      $class: 'AmazonWebServicesCredentialsBinding',
-      credentialsId: 'aws-credentials'
-    ]]) {
-      sh """
-        aws eks update-kubeconfig --name compressor-cluster --region us-east-1
+      steps {
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-credentials'
+        ]]) {
+          sh """
+            aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
 
-        kubectl -n media-app set image deployment/backend \
-          backend=saikiranasamwar4/compressor-backend:${BUILD_NUMBER}
+            kubectl -n ${NAMESPACE} set image deployment/backend \
+              backend=${DOCKERHUB_BACKEND}:${BUILD_NUMBER}
 
-        kubectl -n media-app set image deployment/frontend \
-          frontend=saikiranasamwar4/compressor-frontend:${BUILD_NUMBER}
-      """
+            kubectl -n ${NAMESPACE} set image deployment/frontend \
+              frontend=${DOCKERHUB_FRONTEND}:${BUILD_NUMBER}
+          """
+        }
+      }
     }
-  }
-}
-
 
     // ===============================
-    // STAGE 6: HEALTH CHECK
+    // STAGE 6: HEALTH CHECK (FIXED ✅)
     // ===============================
     stage('Health Check') {
       steps {
         echo '🏥 Checking deployment health...'
-        sh "kubectl -n ${NAMESPACE} get pods"
-        sh "kubectl -n ${NAMESPACE} get svc"
+
+        withCredentials([[
+          $class: 'AmazonWebServicesCredentialsBinding',
+          credentialsId: 'aws-credentials'
+        ]]) {
+          sh """
+            aws eks update-kubeconfig --name ${EKS_CLUSTER} --region ${AWS_REGION}
+
+            kubectl -n ${NAMESPACE} get pods
+            kubectl -n ${NAMESPACE} get svc
+          """
+        }
       }
     }
   }
