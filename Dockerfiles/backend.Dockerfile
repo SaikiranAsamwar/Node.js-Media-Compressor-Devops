@@ -13,7 +13,7 @@ COPY backend/package*.json ./
 RUN npm ci
 
 # Copy source code and build (if build script exists)
-COPY backend/ .
+COPY . .
 RUN npm run build || true    # || true prevents failure if build script doesn't exist
 
 # ---------- STAGE 2: Runtime ----------
