@@ -12,6 +12,16 @@
   --bg-gradient: linear-gradient(135deg, #f9fafb 0%, #e5e7eb 100%);
 }
 
+/* Prevent flash of unstyled content */
+body.loading {
+  opacity: 0;
+}
+
+body {
+  opacity: 1;
+  transition: opacity 0.15s ease-in;
+}
+
 /* Dark theme - Auto mode (system preference) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -97,8 +107,13 @@ body {
   min-height: 100vh;
   color: var(--dark);
   line-height: 1.6;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   overflow-x: hidden;
+  /* GPU acceleration for smooth transitions */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .container {
@@ -116,6 +131,10 @@ body {
   top: 0;
   z-index: 1000;
   border-bottom: 1px solid var(--border);
+  /* GPU acceleration */
+  transform: translateZ(0);
+  will-change: background;
+  transition: background-color 0.2s ease;
 }
 
 .navbar-content {
@@ -216,13 +235,18 @@ body {
   opacity: 0;
   visibility: hidden;
   transform: translateY(-10px);
-  transition: all 0.2s;
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  /* GPU acceleration */
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  pointer-events: none;
 }
 
 .dropdown-menu.show {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
+  pointer-events: auto;
 }
 
 .dropdown-item {
@@ -370,6 +394,17 @@ body {
 
 .hidden {
   display: none !important;
+  visibility: hidden !important;
+}
+
+/* Theme icon visibility optimization */
+.theme-icon.hidden {
+  display: none;
+}
+
+.theme-icon {
+  display: inline-block;
+  transition: none; /* Remove transition to prevent flicker */
 }
 
 .text-center {
@@ -396,18 +431,22 @@ body {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   width: 100%;
   max-width: 450px;
-  animation: slideUp 0.4s ease;
+  animation: slideUp 0.3s ease-out;
   border: 1px solid var(--border);
+  /* GPU acceleration */
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(20px) translateZ(0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) translateZ(0);
   }
 }
 

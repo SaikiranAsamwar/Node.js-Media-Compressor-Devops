@@ -14,42 +14,11 @@ function checkAuth() {
   return { token, user };
 }
 
-// Initialize
+// Initialize auth
 const auth = checkAuth();
-if (auth) {
-  const username = auth.user.username;
-  document.getElementById('navUsername').textContent = username;
-  document.getElementById('userAvatar').textContent = username.charAt(0).toUpperCase();
-}
 
-// Profile dropdown
-const profileBtn = document.getElementById('profileBtn');
-const profileMenu = document.getElementById('profileMenu');
-
-profileBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  profileMenu.classList.toggle('show');
-});
-
-document.addEventListener('click', () => {
-  profileMenu.classList.remove('show');
-});
-
-// Logout
-document.getElementById('logoutBtn').addEventListener('click', async () => {
-  try {
-    await fetch(`${API_URL}/auth/logout`, {
-      method: 'POST',
-      credentials: 'include'
-    });
-  } catch (error) {
-    console.error('Logout error:', error);
-  }
-  
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  globalThis.location.href = '/login';
-});
+// NOTE: Profile dropdown, theme toggle, and logout are handled by common.js
+// No need to duplicate event listeners here
 
 // Utility functions
 function formatFileSize(bytes) {

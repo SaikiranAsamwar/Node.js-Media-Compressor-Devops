@@ -14,9 +14,9 @@ function checkAuth() {
   return { token, user };
 }
 
-// Handle card filtering based on URL hash
+// Handle card filtering based on URL hash - optimized to prevent layout shifts
 function handleCardFiltering() {
-  const hash = globalThis.location.hash.substring(1); // Remove the # symbol
+  const hash = globalThis.location.hash.substring(1);
   const cards = document.querySelectorAll('.card[data-card]');
   
   // Update page title based on hash
@@ -50,66 +50,53 @@ function handleCardFiltering() {
   const heroTitle = document.getElementById('heroTitle');
   const heroSubtitle = document.getElementById('heroSubtitle');
   
-  if (hash && titles[hash]) {
-    document.title = titles[hash];
-    if (heroTitle && heroContent[hash]) {
-      heroTitle.textContent = heroContent[hash].title;
-      heroSubtitle.textContent = heroContent[hash].subtitle;
+  // Use requestAnimationFrame to batch DOM updates
+  requestAnimationFrame(() => {
+    if (hash && titles[hash]) {
+      document.title = titles[hash];
+      if (heroTitle && heroContent[hash]) {
+        heroTitle.textContent = heroContent[hash].title;
+        heroSubtitle.textContent = heroContent[hash].subtitle;
+      }
+    } else {
+      document.title = 'File Tools - FileCompressor Pro';
+      if (heroTitle) {
+        heroTitle.textContent = 'Compress & Convert Files';
+        heroSubtitle.textContent = 'Simple, fast, and professional file compression';
+      }
     }
-  } else {
-    document.title = 'File Tools - FileCompressor Pro';
-    if (heroTitle) {
-      heroTitle.textContent = 'Compress & Convert Files';
-      heroSubtitle.textContent = 'Simple, fast, and professional file compression';
-    }
-  }
-  
-  if (hash && cards.length > 0) {
-    // Hide all cards
-    cards.forEach(card => {
-      card.style.display = 'none';
-    });
     
-    // Show only the selected card
-    const selectedCard = document.getElementById(`card-${hash}`);
-    if (selectedCard) {
-      selectedCard.style.display = 'block';
-      // Scroll to the card
-      selectedCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (hash && cards.length > 0) {
+      // Hide all cards
+      cards.forEach(card => {
+        card.style.display = 'none';
+      });
+      
+      // Show only the selected card
+      const selectedCard = document.getElementById(`card-${hash}`);
+      if (selectedCard) {
+        selectedCard.style.display = 'block';
+        // Smooth scroll to the card
+        selectedCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } else {
+      // Show all cards if no hash
+      cards.forEach(card => {
+        card.style.display = 'block';
+      });
     }
-  } else {
-    // Show all cards if no hash
-    cards.forEach(card => {
-      card.style.display = 'block';
-    });
-  }
+  });
 }
 
 // Call on page load and hash change
 globalThis.addEventListener('load', handleCardFiltering);
 globalThis.addEventListener('hashchange', handleCardFiltering);
 
-// Initialize app
+// Initialize app - auth check only, UI handled by common.js
 const auth = checkAuth();
-if (auth) {
-  document.getElementById('username').textContent = auth.user.username;
-}
 
-// Logout
-document.getElementById('logoutBtn').addEventListener('click', async () => {
-  try {
-    await fetch(`${API_URL}/auth/logout`, {
-      method: 'POST',
-      credentials: 'include'
-    });
-  } catch (error) {
-    console.error('Logout error:', error);
-  }
-  
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  globalThis.location.href = '/login';
-});
+// NOTE: Profile dropdown, logout, and theme toggle are handled by common.js
+// No duplicate event listeners needed here
 
 // Utility functions
 function formatFileSize(bytes) {

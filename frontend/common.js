@@ -1,17 +1,15 @@
 // Common functionality for all pages
 
-// Theme Management
+// Theme Management - Optimized to prevent flickering
 let currentTheme = localStorage.getItem('theme') || 'auto';
+let themeInitialized = false;
+let eventListenersAttached = false;
 
-// Initialize theme
-function initializeTheme() {
-  currentTheme = localStorage.getItem('theme') || 'auto';
-  applyTheme(currentTheme);
-  updateThemeToggleIcon();
-}
-
-// Apply theme
-function applyTheme(theme) {
+// Early theme application (called before DOM ready to prevent flash)
+function applyThemeEarly() {
+  if (themeInitialized) return;
+  
+  const theme = localStorage.getItem('theme') || 'auto';
   const html = document.documentElement;
   
   if (theme === 'dark') {
@@ -22,9 +20,39 @@ function applyTheme(theme) {
     html.removeAttribute('data-theme');
   }
   
-  localStorage.setItem('theme', theme);
   currentTheme = theme;
-  updateThemeToggleIcon();
+  themeInitialized = true;
+}
+
+// Apply theme immediately on load to prevent flickering
+applyThemeEarly();
+
+// Initialize theme (only updates icon, theme already applied)
+function initializeTheme() {
+  if (!themeInitialized) {
+    applyThemeEarly();
+  }
+  requestAnimationFrame(updateThemeToggleIcon);
+}
+
+// Apply theme with optimization
+function applyTheme(theme) {
+  const html = document.documentElement;
+  
+  // Use requestAnimationFrame to batch DOM changes
+  requestAnimationFrame(() => {
+    if (theme === 'dark') {
+      html.setAttribute('data-theme', 'dark');
+    } else if (theme === 'light') {
+      html.setAttribute('data-theme', 'light');
+    } else {
+      html.removeAttribute('data-theme');
+    }
+    
+    localStorage.setItem('theme', theme);
+    currentTheme = theme;
+    updateThemeToggleIcon();
+  });
 }
 
 // Toggle theme
@@ -41,7 +69,7 @@ function toggleTheme() {
   applyTheme(newTheme);
 }
 
-// Update theme toggle icon
+// Update theme toggle icon - optimized to prevent reflow
 function updateThemeToggleIcon() {
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   if (!themeToggleBtn) return;
@@ -63,29 +91,36 @@ function updateThemeToggleIcon() {
     showDarkIcon = window.matchMedia('(prefers-color-scheme: dark)').matches;
   }
   
+  // Use CSS classes instead of inline styles to prevent reflow
   if (showDarkIcon) {
-    sunIcon.style.display = 'none';
-    moonIcon.style.display = 'block';
+    sunIcon.classList.add('hidden');
+    moonIcon.classList.remove('hidden');
   } else {
-    sunIcon.style.display = 'block';
-    moonIcon.style.display = 'none';
+    sunIcon.classList.remove('hidden');
+    moonIcon.classList.add('hidden');
   }
 }
 
-// Profile dropdown toggle
+// Profile dropdown toggle - optimized to prevent duplicate listeners
 function setupProfileDropdown() {
+  if (eventListenersAttached) return; // Prevent duplicate listeners
+  
   const profileBtn = document.getElementById('profileBtn');
   const profileMenu = document.getElementById('profileMenu');
   
   if (profileBtn && profileMenu) {
-    profileBtn.addEventListener('click', (e) => {
+    // Use named functions for easier cleanup if needed
+    const toggleMenu = (e) => {
       e.stopPropagation();
       profileMenu.classList.toggle('show');
-    });
-
-    document.addEventListener('click', () => {
+    };
+    
+    const closeMenu = () => {
       profileMenu.classList.remove('show');
-    });
+    };
+    
+    profileBtn.addEventListener('click', toggleMenu, { once: false });
+    document.addEventListener('click', closeMenu, { once: false });
   }
 }
 
@@ -178,25 +213,44 @@ function setupLogoutButton() {
   }
 }
 
-// Initialize everything on page load
+// Initialize everything on page load - optimized to prevent duplicate listeners
 document.addEventListener('DOMContentLoaded', () => {
-  initializeTheme();
+  if (eventListenersAttached) return; // Prevent re-initialization
+  
+  // Theme is already applied early, just update icon
+  requestAnimationFrame(updateThemeToggleIcon);
+  
+  // Initialize components
   initializeNavUser();
   setupProfileDropdown();
   setupLogoutButton();
   
-  // Setup theme toggle button
+  // Setup theme toggle button - single listener
   const themeToggleBtn = document.getElementById('themeToggleBtn');
   if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', toggleTheme);
+    themeToggleBtn.addEventListener('click', toggleTheme, { once: false });
   }
   
-  // Listen for system theme changes when in auto mode
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  // Listen for system theme changes when in auto mode - single listener
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleSystemThemeChange = () => {
     if (currentTheme === 'auto') {
-      updateThemeToggleIcon();
+      requestAnimationFrame(updateThemeToggleIcon);
     }
-  });
+  };
+  
+  // Modern browsers
+  if (mediaQuery.addEventListener) {
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+  } else {
+    // Fallback for older browsers
+    mediaQuery.addListener(handleSystemThemeChange);
+  }
+  
+  eventListenersAttached = true;
+  
+  // Remove loading class to show content smoothly
+  document.body.classList.remove('loading');
 });
 
 // Export functions for use in other scripts
