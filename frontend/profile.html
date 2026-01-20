@@ -4,19 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Profile - Account Settings & Information | FileCompressor Pro</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/styles.css">
   <!-- Preload critical assets -->
-  <link rel="preload" href="common.js" as="script">
-  <link rel="preload" href="profile.js" as="script">
+  <link rel="preload" href="/common.js" as="script">
+  <link rel="preload" href="/profile.js" as="script">
   <!-- Early theme application to prevent FOUC -->
   <script>
     (function() {
       const theme = localStorage.getItem('theme') || 'auto';
       const html = document.documentElement;
       if (theme === 'dark') {
-        html.setAttribute('data-theme', 'dark');
+        html.dataset.theme = 'dark';
       } else if (theme === 'light') {
-        html.setAttribute('data-theme', 'light');
+        html.dataset.theme = 'light';
       }
     })();
   </script>
@@ -98,7 +98,7 @@
 
           <div class="profile-info">
             <div class="info-group">
-              <label>Username</label>
+              <label for="displayUsername">Username</label>
               <div class="info-display">
                 <span id="displayUsername">Loading...</span>
                 <button class="edit-btn" onclick="editField('username')">Edit</button>
@@ -113,7 +113,7 @@
             </div>
 
             <div class="info-group">
-              <label>Email</label>
+              <label for="displayEmail">Email</label>
               <div class="info-display">
                 <span id="displayEmail">Loading...</span>
                 <button class="edit-btn" onclick="editField('email')">Edit</button>
@@ -128,21 +128,21 @@
             </div>
 
             <div class="info-group">
-              <label>Account Type</label>
+              <label for="accountType">Account Type</label>
               <div class="info-display">
                 <span class="badge" id="accountType">Free</span>
               </div>
             </div>
 
             <div class="info-group">
-              <label>Member Since</label>
+              <label for="memberSince">Member Since</label>
               <div class="info-display">
                 <span id="memberSince">Loading...</span>
               </div>
             </div>
 
             <div class="info-group">
-              <label>Connected Accounts</label>
+              <label for="googleAccount">Connected Accounts</label>
               <div class="connected-accounts">
                 <div class="account-item" id="googleAccount">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -167,22 +167,25 @@
             <h4>Change Password</h4>
             <form id="changePasswordForm" class="password-form" novalidate>
               <div class="form-group">
-                <label>Current Password</label>
+                <label for="currentPassword">Current Password</label>
                 <input type="password" id="currentPassword" class="profile-input form-control" required aria-label="Current password">
                 <div class="invalid-feedback">Please enter your current password.</div>
               </div>
               <div class="form-group">
-                <label>New Password</label>
+                <label for="newPassword">New Password</label>
                 <input type="password" id="newPassword" class="profile-input form-control" minlength="6" required aria-label="New password">
                 <div class="invalid-feedback">Password must be at least 6 characters.</div>
               </div>
               <div class="form-group">
-                <label>Confirm New Password</label>
+                <label for="confirmPassword">Confirm New Password</label>
                 <input type="password" id="confirmPassword" class="profile-input form-control" minlength="6" required aria-label="Confirm new password">
                 <div class="invalid-feedback">Please confirm your new password.</div>
               </div>
               <div id="passwordMessage" class="message hidden"></div>
-              <button type="submit" class="btn btn-primary">Update Password</button>
+              <div class="button-group">
+                <button type="submit" class="btn btn-primary">Update Password</button>
+                <button type="reset" class="btn btn-outline">Reset</button>
+              </div>
             </form>
           </div>
         </div>
@@ -261,8 +264,8 @@
     </div>
   </footer>
 
-  <script src="common.js"></script>
-  <script src="profile.js"></script>
+  <script src="/common.js"></script>
+  <script src="/profile.js"></script>
 </body>
 </html>
 

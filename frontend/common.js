@@ -13,11 +13,11 @@ function applyThemeEarly() {
   const html = document.documentElement;
   
   if (theme === 'dark') {
-    html.setAttribute('data-theme', 'dark');
+    html.dataset.theme = 'dark';
   } else if (theme === 'light') {
-    html.setAttribute('data-theme', 'light');
+    html.dataset.theme = 'light';
   } else {
-    html.removeAttribute('data-theme');
+    delete html.dataset.theme;
   }
   
   currentTheme = theme;
@@ -42,11 +42,11 @@ function applyTheme(theme) {
   // Use requestAnimationFrame to batch DOM changes
   requestAnimationFrame(() => {
     if (theme === 'dark') {
-      html.setAttribute('data-theme', 'dark');
+      html.dataset.theme = 'dark';
     } else if (theme === 'light') {
-      html.setAttribute('data-theme', 'light');
+      html.dataset.theme = 'light';
     } else {
-      html.removeAttribute('data-theme');
+      delete html.dataset.theme;
     }
     
     localStorage.setItem('theme', theme);
@@ -80,7 +80,7 @@ function updateThemeToggleIcon() {
   if (!sunIcon || !moonIcon) return;
   
   // Determine which icon to show based on current theme and system preference
-  let showDarkIcon = false;
+  let showDarkIcon;
   
   if (currentTheme === 'dark') {
     showDarkIcon = true;
@@ -88,7 +88,7 @@ function updateThemeToggleIcon() {
     showDarkIcon = false;
   } else {
     // Auto mode - check system preference
-    showDarkIcon = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    showDarkIcon = globalThis.matchMedia('(prefers-color-scheme: dark)').matches;
   }
   
   // Use CSS classes instead of inline styles to prevent reflow
@@ -124,22 +124,44 @@ function setupProfileDropdown() {
   }
 }
 
+// Helper function to check if current page is public
+function isOnPublicPage() {
+  const currentPath = globalThis.location.pathname;
+  const publicPaths = ['/', '/index', '/login', '/signup', '/pricing'];
+  return publicPaths.some(path => currentPath === path || currentPath === path + '.html');
+}
+
+// Helper function to redirect to login if not on public page
+function redirectToLoginIfNeeded() {
+  if (!isOnPublicPage()) {
+    globalThis.location.href = '/login';
+  }
+}
+
+// Helper function to update user avatar display
+function updateUserAvatar(avatar, user) {
+  if (user.profilePicture) {
+    avatar.style.backgroundImage = `url(${user.profilePicture})`;
+    avatar.style.backgroundSize = 'cover';
+    avatar.style.backgroundPosition = 'center';
+    avatar.textContent = '';
+  } else {
+    avatar.textContent = user.username.charAt(0).toUpperCase();
+  }
+}
+
 // Initialize user data in navbar
 async function initializeNavUser() {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
-      // Only redirect to login if we're not already on login or signup page
-      const currentPage = window.location.pathname.split('/').pop();
-      if (currentPage !== 'login.html' && currentPage !== 'signup.html' && currentPage !== 'index.html' && currentPage !== '') {
-        console.log('→ Common: No token found, redirecting to login');
-        window.location.href = '/login';
-      }
+      console.log('→ Common: No token found, redirecting to login');
+      redirectToLoginIfNeeded();
       return;
     }
 
     console.log('→ Common: Authenticating user...');
-    const response = await fetch('http://localhost:5000/auth/me', {
+    const response = await fetch('/auth/me', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -154,7 +176,6 @@ async function initializeNavUser() {
       const user = await response.json();
       console.log('✓ Common: User authenticated:', user.username);
       
-      // Update navbar
       const navUsername = document.getElementById('navUsername');
       if (navUsername) {
         navUsername.textContent = user.username;
@@ -162,18 +183,10 @@ async function initializeNavUser() {
       
       const avatar = document.getElementById('userAvatar');
       if (avatar) {
-        if (user.profilePicture) {
-          avatar.style.backgroundImage = `url(${user.profilePicture})`;
-          avatar.style.backgroundSize = 'cover';
-          avatar.style.backgroundPosition = 'center';
-          avatar.textContent = '';
-        } else {
-          avatar.textContent = user.username.charAt(0).toUpperCase();
-        }
+        updateUserAvatar(avatar, user);
       }
       
-      // Dispatch event for page-specific handlers
-      window.dispatchEvent(new CustomEvent('userAuthenticated', { 
+      globalThis.dispatchEvent(new CustomEvent('userAuthenticated', { 
         detail: user 
       }));
       
@@ -181,17 +194,13 @@ async function initializeNavUser() {
       console.error('✗ Common: Auth failed with status:', response.status);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      const currentPage = window.location.pathname.split('/').pop();
-      if (currentPage !== 'login.html' && currentPage !== 'signup.html' && currentPage !== 'index.html' && currentPage !== '') {
-        console.log('→ Common: Invalid token, redirecting to login');
-        window.location.href = '/login';
-      }
+      console.log('→ Common: Invalid token, redirecting to login');
+      redirectToLoginIfNeeded();
     }
   } catch (error) {
     console.error('✗ Common: Error fetching user:', error);
     console.error('Error details:', error.message);
-    // Don't redirect on network errors, but dispatch a failed event
-    window.dispatchEvent(new CustomEvent('userAuthFailed', { 
+    globalThis.dispatchEvent(new CustomEvent('userAuthFailed', { 
       detail: error 
     }));
   }
@@ -201,7 +210,7 @@ async function initializeNavUser() {
 function logout() {
   if (confirm('Are you sure you want to logout?')) {
     localStorage.removeItem('token');
-    window.location.href = '/login';
+    globalThis.location.href = '/login';
   }
 }
 
@@ -232,20 +241,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Listen for system theme changes when in auto mode - single listener
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)');
   const handleSystemThemeChange = () => {
     if (currentTheme === 'auto') {
       requestAnimationFrame(updateThemeToggleIcon);
     }
   };
   
-  // Modern browsers
-  if (mediaQuery.addEventListener) {
-    mediaQuery.addEventListener('change', handleSystemThemeChange);
-  } else {
-    // Fallback for older browsers
-    mediaQuery.addListener(handleSystemThemeChange);
-  }
+  // Use modern addEventListener (supported in all modern browsers)
+  mediaQuery.addEventListener('change', handleSystemThemeChange);
   
   eventListenersAttached = true;
   
@@ -254,8 +258,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Export functions for use in other scripts
-window.initializeTheme = initializeTheme;
-window.applyTheme = applyTheme;
-window.toggleTheme = toggleTheme;
-window.logout = logout;
+globalThis.initializeTheme = initializeTheme;
+globalThis.applyTheme = applyTheme;
+globalThis.toggleTheme = toggleTheme;
+globalThis.logout = logout;
 

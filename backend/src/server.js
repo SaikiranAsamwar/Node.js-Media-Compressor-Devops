@@ -101,51 +101,59 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../../frontend', 'index.html'));
 });
 
-// MongoDB connection with better error handling
-const MONGO = process.env.MONGO_URI || 'mongodb://localhost:27017/filetool';
-try {
-  await mongoose.connect(MONGO, {
-    serverSelectionTimeoutMS: 5000
+// Start server function
+async function startServer() {
+  // MongoDB connection with better error handling
+  const MONGO = process.env.MONGO_URI || 'mongodb://localhost:27017/filetool';
+  try {
+    await mongoose.connect(MONGO, {
+      serverSelectionTimeoutMS: 5000
+    });
+    console.log('MongoDB connected successfully');
+  } catch (err) {
+    console.warn('MongoDB connection failed:', err.message);
+    console.log('App will run without database features');
+  }
+
+  const PORT = process.env.PORT || 5000;
+  const server = app.listen(PORT, () => {
+    console.log(`Server listening on http://localhost:${PORT}`);
   });
-  console.log('MongoDB connected successfully');
-} catch (err) {
-  console.warn('MongoDB connection failed:', err.message);
-  console.log('App will run without database features');
+
+  // Socket.io for real-time features
+  const io = socketIo(server, {
+    cors: {
+      origin: function(origin, callback) {
+        // Allow requests with no origin (mobile apps, etc)
+        if (!origin) return callback(null, true);
+        // Check if origin is in allowed list
+        if (allowedOrigins.has(origin)) return callback(null, true);
+        // For production, allow any origin that ends with the domain
+        if (process.env.NODE_ENV === 'production' && origin.includes('.amazonaws.com')) {
+          return callback(null, true);
+        }
+        return callback(null, true); // Allow all origins in development
+      },
+      credentials: true
+    }
+  });
+
+  // Socket.io connection handler
+  io.on('connection', (socket) => {
+    console.log('Admin connected:', socket.id);
+
+    socket.on('disconnect', () => {
+      console.log('Admin disconnected:', socket.id);
+    });
+  });
+
+  // Store io for use in other parts of the app
+  app.io = io;
+
+  return { app, io, server };
 }
 
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
-});
+// Start the server
+await startServer();
 
-// Socket.io for real-time features
-const io = socketIo(server, {
-  cors: {
-    origin: function(origin, callback) {
-      // Allow requests with no origin (mobile apps, etc)
-      if (!origin) return callback(null, true);
-      // Check if origin is in allowed list
-      if (allowedOrigins.has(origin)) return callback(null, true);
-      // For production, allow any origin that ends with the domain
-      if (process.env.NODE_ENV === 'production' && origin.includes('.amazonaws.com')) {
-        return callback(null, true);
-      }
-      return callback(null, true); // Allow all origins in development
-    },
-    credentials: true
-  }
-});
-
-// Socket.io connection handler
-io.on('connection', (socket) => {
-  console.log('Admin connected:', socket.id);
-
-  socket.on('disconnect', () => {
-    console.log('Admin disconnected:', socket.id);
-  });
-});
-
-// Store io for use in other parts of the app
-app.io = io;
-
-module.exports = { app, io, server };
+module.exports = { app };

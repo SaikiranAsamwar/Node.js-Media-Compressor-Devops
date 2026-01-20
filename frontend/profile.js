@@ -111,7 +111,7 @@ function displayUserData(user) {
 // Load user statistics
 async function loadStatistics() {
   try {
-    const response = await fetch('http://localhost:5000/api/my-jobs', {
+    const response = await fetch('/api/my-jobs', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -178,7 +178,7 @@ globalThis.saveField = async function(field) {
   }
 
   try {
-    const response = await fetch('http://localhost:5000/api/profile', {
+    const response = await fetch('/api/profile', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -241,7 +241,7 @@ document.getElementById('photoInput')?.addEventListener('change', async (e) => {
   formData.append('profilePicture', file);
 
   try {
-    const response = await fetch('http://localhost:5000/api/profile/picture', {
+    const response = await fetch('/api/profile/picture', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -304,7 +304,7 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
   }
 
   try {
-    const response = await fetch('http://localhost:5000/api/profile/password', {
+    const response = await fetch('/api/profile/password', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -319,13 +319,22 @@ document.getElementById('changePasswordForm')?.addEventListener('submit', async 
       throw new Error(data.message || 'Failed to change password');
     }
 
-    // Clear form
-    document.getElementById('changePasswordForm').reset();
+    // Clear form and validation
+    form.reset();
+    form.classList.remove('was-validated');
     showPasswordMessage('success', 'Password changed successfully');
   } catch (error) {
     console.error('Error changing password:', error);
     showPasswordMessage('error', error.message);
   }
+});
+
+// Reset password form
+document.getElementById('changePasswordForm')?.addEventListener('reset', (e) => {
+  const form = e.target;
+  form.classList.remove('was-validated');
+  document.getElementById('confirmPassword').setCustomValidity('');
+  hidePasswordMessage();
 });
 
 // Connect/disconnect Google
@@ -335,7 +344,7 @@ document.getElementById('connectGoogleBtn')?.addEventListener('click', async () 
     if (!confirm('Are you sure you want to disconnect your Google account?')) return;
     
     try {
-      const response = await fetch('http://localhost:5000/api/profile/disconnect-google', {
+      const response = await fetch('/api/profile/disconnect-google', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -356,7 +365,7 @@ document.getElementById('connectGoogleBtn')?.addEventListener('click', async () 
     }
   } else {
     // Connect Google
-    globalThis.location.href = 'http://localhost:5000/auth/google';
+    globalThis.location.href = '/auth/google';
   }
 });
 
@@ -367,7 +376,7 @@ globalThis.clearHistory = async function() {
   }
 
   try {
-    const response = await fetch('http://localhost:5000/api/clear-history', {
+    const response = await fetch('/api/clear-history', {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -393,7 +402,7 @@ globalThis.deleteAccount = async function() {
   }
 
   try {
-    const response = await fetch('http://localhost:5000/api/profile', {
+    const response = await fetch('/api/profile', {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`
@@ -446,12 +455,21 @@ function showPasswordMessage(type, message) {
   }, 3000);
 }
 
+// Hide password message
+function hidePasswordMessage() {
+  const messageDiv = document.getElementById('passwordMessage');
+  if (messageDiv) {
+    messageDiv.classList.add('hidden');
+  }
+}
+
 // Logout
 document.getElementById('logoutBtn')?.addEventListener('click', () => {
   localStorage.removeItem('token');
   globalThis.location.href = '/login';
 });
 
-// Initialize
-await loadUserData();
-
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadUserData();
+});

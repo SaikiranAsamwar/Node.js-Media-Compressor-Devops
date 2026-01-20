@@ -14,12 +14,8 @@
 
 /* Prevent flash of unstyled content */
 body.loading {
-  opacity: 0;
-}
-
-body {
-  opacity: 1;
-  transition: opacity 0.15s ease-in;
+  opacity: 0 !important;
+  visibility: hidden;
 }
 
 /* Dark theme - Auto mode (system preference) */
@@ -107,7 +103,9 @@ body {
   min-height: 100vh;
   color: var(--dark);
   line-height: 1.6;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.2s ease-in, background-color 0.2s ease, color 0.2s ease;
   overflow-x: hidden;
   /* GPU acceleration for smooth transitions */
   transform: translateZ(0);
@@ -221,6 +219,9 @@ body {
   justify-content: center;
   font-weight: 600;
   font-size: 0.875rem;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.3s ease;
 }
 
 .dropdown-menu {
@@ -294,12 +295,6 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.logo {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--primary);
 }
 
 .nav-links {
@@ -404,7 +399,7 @@ body {
 
 .theme-icon {
   display: inline-block;
-  transition: none; /* Remove transition to prevent flicker */
+  transition: transform 0.3s;
 }
 
 .text-center {
@@ -459,11 +454,15 @@ body {
 
 .form-group {
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--dark);
 }
@@ -512,12 +511,15 @@ body {
 }
 
 .success-message {
-  background: #efe;
-  color: var(--success);
+  background: #d1fae5;
+  color: #065f46;
   padding: 1rem;
   border-radius: 8px;
   margin-bottom: 1rem;
+  border: 1px solid #6ee7b7;
   border-left: 4px solid var(--success);
+  animation: slideUp 0.3s ease;
+  font-weight: 500;
 }
 
 .auth-switch {
@@ -633,7 +635,8 @@ body {
 }
 
 .upload-zone:hover,
-.upload-zone.dragover {
+.upload-zone.dragover,
+.upload-zone.drag-over {
   border-color: var(--primary);
   background: #eef2ff;
 }
@@ -804,11 +807,13 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.875rem;
+  gap: 1.5rem;
+  padding: 1.5rem;
   background: var(--light);
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   font-size: 0.875rem;
+  transition: all 0.2s;
 }
 
 .history-info {
@@ -821,24 +826,27 @@ body {
 }
 
 .history-meta {
-  font-size: 0.8rem;
+  display: flex;
+  gap: 1rem;
+  font-size: 0.875rem;
   color: var(--gray);
 }
 
 .history-actions {
   color: var(--success);
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 /* Loading Spinner */
 .spinner {
-  border: 2px solid var(--border);
-  border-top: 2px solid var(--primary);
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border);
+  border-top-color: var(--primary);
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
 }
 
 @keyframes spin {
@@ -850,11 +858,6 @@ body {
   text-align: center;
   padding: 1.5rem;
   color: var(--gray);
-}
-
-/* Hidden */
-.hidden {
-  display: none !important;
 }
 
 /* Responsive */
@@ -1018,6 +1021,7 @@ body {
   border-radius: 8px;
   font-size: 0.9rem;
   font-family: inherit;
+  min-width: 200px;
 }
 
 .search-input:focus {
@@ -1030,17 +1034,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 1.5rem;
-  background: var(--light);
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  transition: all 0.2s;
 }
 
 .history-item:hover {
@@ -1067,13 +1060,6 @@ body {
   white-space: nowrap;
 }
 
-.history-meta {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.875rem;
-  color: var(--gray);
-}
-
 .history-type {
   font-weight: 500;
 }
@@ -1091,43 +1077,27 @@ body {
 }
 
 .stat-label {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--gray);
   margin-bottom: 0.25rem;
 }
 
 .stat-value {
-  font-weight: 600;
-  color: var(--dark);
-  font-size: 0.9rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
 }
 
 .stat-item.savings .stat-value {
   color: var(--success);
 }
 
-.history-actions {
-  flex-shrink: 0;
-}
-
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
-}
-
 .loading-spinner {
+  width: 50px;
+  height: 50px;
   text-align: center;
   padding: 3rem;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--border);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
+  border: 4px solid rgba(255, 255, 255, 0.3);
 }
 
 @keyframes spin {
@@ -1152,17 +1122,6 @@ body {
 .empty-state p {
   color: var(--gray);
   margin-bottom: 2rem;
-}
-
-.error-message {
-  text-align: center;
-  padding: 3rem;
-}
-
-.error-message p {
-  font-size: 1.125rem;
-  color: var(--danger);
-  margin-bottom: 1.5rem;
 }
 
 /* Pricing Page Styles */
@@ -1537,11 +1496,6 @@ body {
   th, td {
     padding: 0.5rem;
   }
-  
-  .footer-content {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
 }
 
 /* Profile Page Styles */
@@ -1678,13 +1632,14 @@ body {
   background: #e0e7ff;
   color: var(--primary);
   border-radius: 12px;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1;
 }
 
 .badge-admin {
   background: #fef3c7;
-  color: #d97706;
+  color: #92400e;
 }
 
 .connected-accounts {
@@ -1731,18 +1686,6 @@ body {
   gap: 1rem;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-group label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--gray);
-}
-
 /* Stats Grid Small */
 .stats-grid-small {
   display: grid;
@@ -1761,21 +1704,6 @@ body {
   border-radius: 8px;
   border: 1px solid var(--border);
   text-align: center;
-}
-
-.stat-icon {
-  font-size: 2rem;
-}
-
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--primary);
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  color: var(--gray);
 }
 
 /* Danger Card */
@@ -1800,27 +1728,12 @@ body {
   flex-wrap: wrap;
 }
 
-.btn-danger {
-  background: var(--danger);
-  color: white;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
 /* Messages */
 .message {
   padding: 0.75rem 1rem;
   border-radius: 8px;
   margin-bottom: 1rem;
   font-size: 0.875rem;
-}
-
-.success-message {
-  background: #d1fae5;
-  color: #065f46;
-  border: 1px solid #6ee7b7;
 }
 
 /* Admin Dashboard Styles */
@@ -1968,14 +1881,6 @@ body {
   align-items: center;
 }
 
-.search-input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  min-width: 200px;
-}
-
 .filter-select {
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border);
@@ -2030,7 +1935,7 @@ body {
 
 .role-badge.role-admin {
   background: #fef3c7;
-  color: #d97706;
+  color: #92400e;
 }
 
 .role-badge.role-user {
@@ -2052,8 +1957,8 @@ body {
 }
 
 .status-badge.inactive {
-  background: #f3f4f6;
-  color: #6b7280;
+  background: #e5e7eb;
+  color: #374151;
 }
 
 .action-icons {
@@ -2303,10 +2208,6 @@ body {
   color: var(--primary);
 }
 
-.theme-icon {
-  transition: transform 0.3s;
-}
-
 .theme-toggle-btn:hover .theme-icon {
   transform: rotate(20deg);
 }
@@ -2511,11 +2412,6 @@ body {
 
 .danger-zone h3 {
   color: var(--danger);
-}
-
-.btn-sm {
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
 }
 
 /* Dark theme overrides - Manual dark mode */
@@ -2755,15 +2651,6 @@ body {
   backdrop-filter: blur(4px);
 }
 
-.loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
 /* Smooth Transitions for Cards */
 .card,
 .service-card,
@@ -2858,12 +2745,6 @@ a {
 }
 
 /* Profile Avatar Improvements */
-.avatar {
-  background-size: cover;
-  background-position: center;
-  transition: transform 0.3s ease;
-}
-
 .profile-btn:hover .avatar {
   transform: scale(1.05);
 }
@@ -2902,53 +2783,11 @@ a {
   color: white;
 }
 
-/* Improved Error and Success Messages */
-.error-message,
-.success-message {
-  animation: slideUp 0.3s ease;
-  font-weight: 500;
-}
-
 /* Better Modal/Dialog Styling */
 .modal-overlay {
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   animation: fadeIn 0.3s ease;
-}
-
-/* Improved Upload Zone */
-.upload-zone {
-  transition: all 0.3s ease;
-}
-
-.upload-zone:hover {
-  transform: scale(1.02);
-}
-
-.upload-zone.drag-over {
-  border-color: var(--primary);
-  background: rgba(79, 70, 229, 0.05);
-  transform: scale(1.02);
-}
-
-/* Better Badge Styling */
-.badge {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.badge-primary {
-  background: rgba(79, 70, 229, 0.1);
-  color: var(--primary);
-}
-
-.badge-success {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success);
 }
 
 .badge-danger {

@@ -92,8 +92,23 @@ function handleCardFiltering() {
 globalThis.addEventListener('load', handleCardFiltering);
 globalThis.addEventListener('hashchange', handleCardFiltering);
 
-// Initialize app - auth check only, UI handled by common.js
-const auth = checkAuth();
+// Initialize app - check auth but don't redirect from index page
+// Index page is public, other pages require auth
+const currentPath = globalThis.location.pathname;
+const publicPaths = ['/', '/index', '/login', '/signup', '/pricing'];
+const isPublicPage = publicPaths.includes(currentPath) || currentPath.endsWith('.html');
+
+let auth = null;
+if (isPublicPage) {
+  // For public pages, just get auth data if available
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  if (token && user) {
+    auth = { token, user };
+  }
+} else {
+  auth = checkAuth();
+}
 
 // NOTE: Profile dropdown, logout, and theme toggle are handled by common.js
 // No duplicate event listeners needed here
@@ -112,29 +127,11 @@ function calculateSavings(original, compressed) {
   return savings + '%';
 }
 
-// Image Converter Handler
-class ImageConverter {
+// Base class for file handlers with shared functionality
+class FileHandlerBase {
   file = null;
-  fileFormat = null;
   downloadUrl = null;
   filename = null;
-  
-  constructor() {
-    
-    // Elements
-    this.dropZone = document.getElementById('convertDropZone');
-    this.input = document.getElementById('convertInput');
-    this.fileInfo = document.getElementById('convertFileInfo');
-    this.formatInfo = document.getElementById('convertFormatInfo');
-    this.formatSelect = document.getElementById('convertFormat');
-    this.progress = document.getElementById('convertProgress');
-    this.progressFill = document.getElementById('convertProgressFill');
-    this.result = document.getElementById('convertResult');
-    this.downloadBtn = document.getElementById('convertDownloadBtn');
-    this.convertBtn = document.getElementById('convertBtn');
-    
-    this.setupEventListeners();
-  }
   
   setupEventListeners() {
     this.dropZone.addEventListener('click', () => this.input.click());
@@ -157,8 +154,7 @@ class ImageConverter {
       if (e.dataTransfer.files.length > 0) this.handleFile(e.dataTransfer.files[0]);
     });
     
-    this.convertBtn.addEventListener('click', () => this.convert());
-    this.downloadBtn.addEventListener('click', () => this.download());
+    // Subclasses should bind action and download buttons
   }
   
   handleFile(file) {
@@ -170,6 +166,47 @@ class ImageConverter {
     
     this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
     this.fileInfo.classList.remove('hidden');
+    
+    // Subclasses can override to add more file handling logic
+  }
+  
+  download() {
+    if (!this.downloadUrl) return;
+    const a = document.createElement('a');
+    a.href = this.downloadUrl;
+    a.download = this.filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+}
+
+// Image Converter Handler
+class ImageConverter extends FileHandlerBase {
+  fileFormat = null;
+  
+  constructor() {
+    super();
+    
+    // Elements
+    this.dropZone = document.getElementById('convertDropZone');
+    this.input = document.getElementById('convertInput');
+    this.fileInfo = document.getElementById('convertFileInfo');
+    this.formatInfo = document.getElementById('convertFormatInfo');
+    this.formatSelect = document.getElementById('convertFormat');
+    this.progress = document.getElementById('convertProgress');
+    this.progressFill = document.getElementById('convertProgressFill');
+    this.result = document.getElementById('convertResult');
+    this.downloadBtn = document.getElementById('convertDownloadBtn');
+    this.convertBtn = document.getElementById('convertBtn');
+    
+    this.setupEventListeners();
+    this.convertBtn.addEventListener('click', () => this.convert());
+    this.downloadBtn.addEventListener('click', () => this.download());
+  }
+  
+  handleFile(file) {
+    super.handleFile(file);
     
     this.formatInfo.textContent = `Current format: ${this.fileFormat.toUpperCase()}`;
     this.formatInfo.classList.remove('hidden');
@@ -264,25 +301,12 @@ class ImageConverter {
       this.progress.classList.add('hidden');
     }
   }
-  
-  download() {
-    if (!this.downloadUrl) return;
-    const a = document.createElement('a');
-    a.href = this.downloadUrl;
-    a.download = this.filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
 }
 
 // Image Compressor Handler
-class ImageCompressor {
-  file = null;
-  downloadUrl = null;
-  filename = null;
-  
+class ImageCompressor extends FileHandlerBase {
   constructor() {
+    super();
     
     // Elements
     this.dropZone = document.getElementById('imageDropZone');
@@ -296,37 +320,12 @@ class ImageCompressor {
     this.compressBtn = document.getElementById('imageCompressBtn');
     
     this.setupEventListeners();
-  }
-  
-  setupEventListeners() {
-    this.dropZone.addEventListener('click', () => this.input.click());
-    this.input.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) this.handleFile(e.target.files[0]);
-    });
-    
-    this.dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      this.dropZone.classList.add('dragover');
-    });
-    
-    this.dropZone.addEventListener('dragleave', () => {
-      this.dropZone.classList.remove('dragover');
-    });
-    
-    this.dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      this.dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) this.handleFile(e.dataTransfer.files[0]);
-    });
-    
     this.compressBtn.addEventListener('click', () => this.compress());
     this.downloadBtn.addEventListener('click', () => this.download());
   }
   
   handleFile(file) {
-    this.file = file;
-    this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
-    this.fileInfo.classList.remove('hidden');
+    super.handleFile(file);
     this.compressBtn.disabled = false;
     this.result.classList.add('hidden');
   }
@@ -408,25 +407,12 @@ class ImageCompressor {
       document.getElementById('imageEstimate').classList.add('hidden');
     }
   }
-  
-  download() {
-    if (!this.downloadUrl) return;
-    const a = document.createElement('a');
-    a.href = this.downloadUrl;
-    a.download = this.filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
 }
 
 // Image Restorer Handler (Reverse Compression)
-class ImageRestorer {
-  file = null;
-  downloadUrl = null;
-  filename = null;
-  
+class ImageRestorer extends FileHandlerBase {
   constructor() {
+    super();
     
     // Elements
     this.dropZone = document.getElementById('restoreDropZone');
@@ -440,37 +426,12 @@ class ImageRestorer {
     this.restoreBtn = document.getElementById('restoreBtn');
     
     this.setupEventListeners();
-  }
-  
-  setupEventListeners() {
-    this.dropZone.addEventListener('click', () => this.input.click());
-    this.input.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) this.handleFile(e.target.files[0]);
-    });
-    
-    this.dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      this.dropZone.classList.add('dragover');
-    });
-    
-    this.dropZone.addEventListener('dragleave', () => {
-      this.dropZone.classList.remove('dragover');
-    });
-    
-    this.dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      this.dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) this.handleFile(e.dataTransfer.files[0]);
-    });
-    
     this.restoreBtn.addEventListener('click', () => this.restore());
     this.downloadBtn.addEventListener('click', () => this.download());
   }
   
   handleFile(file) {
-    this.file = file;
-    this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
-    this.fileInfo.classList.remove('hidden');
+    super.handleFile(file);
     this.restoreBtn.disabled = false;
     this.result.classList.add('hidden');
   }
@@ -533,25 +494,12 @@ class ImageRestorer {
       this.progress.classList.add('hidden');
     }
   }
-  
-  download() {
-    if (!this.downloadUrl) return;
-    const a = document.createElement('a');
-    a.href = this.downloadUrl;
-    a.download = this.filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
 }
 
 // PDF Compressor Handler
-class PdfCompressor {
-  file = null;
-  downloadUrl = null;
-  filename = null;
-  
+class PdfCompressor extends FileHandlerBase {
   constructor() {
+    super();
     
     // Elements
     this.dropZone = document.getElementById('pdfDropZone');
@@ -565,37 +513,12 @@ class PdfCompressor {
     this.compressBtn = document.getElementById('pdfCompressBtn');
     
     this.setupEventListeners();
-  }
-  
-  setupEventListeners() {
-    this.dropZone.addEventListener('click', () => this.input.click());
-    this.input.addEventListener('change', (e) => {
-      if (e.target.files.length > 0) this.handleFile(e.target.files[0]);
-    });
-    
-    this.dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      this.dropZone.classList.add('dragover');
-    });
-    
-    this.dropZone.addEventListener('dragleave', () => {
-      this.dropZone.classList.remove('dragover');
-    });
-    
-    this.dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      this.dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) this.handleFile(e.dataTransfer.files[0]);
-    });
-    
     this.compressBtn.addEventListener('click', () => this.compress());
     this.downloadBtn.addEventListener('click', () => this.download());
   }
   
   handleFile(file) {
-    this.file = file;
-    this.fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
-    this.fileInfo.classList.remove('hidden');
+    super.handleFile(file);
     this.compressBtn.disabled = false;
     this.result.classList.add('hidden');
   }
@@ -659,16 +582,6 @@ class PdfCompressor {
       this.progress.classList.add('hidden');
     }
   }
-  
-  download() {
-    if (!this.downloadUrl) return;
-    const a = document.createElement('a');
-    a.href = this.downloadUrl;
-    a.download = this.filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
 }
 
 // Initialize handlers
@@ -720,5 +633,5 @@ async function loadHistory() {
 }
 
 // Load history on page load
-loadHistory();
+await loadHistory();
 

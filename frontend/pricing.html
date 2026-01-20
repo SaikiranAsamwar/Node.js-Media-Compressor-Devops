@@ -4,19 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pricing Plans - Choose Your Plan | FileCompressor Pro</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/styles.css">
   <!-- Preload critical assets -->
-  <link rel="preload" href="common.js" as="script">
-  <link rel="preload" href="pricing.js" as="script">
+  <link rel="preload" href="/common.js" as="script">
+  <link rel="preload" href="/pricing.js" as="script">
   <!-- Early theme application to prevent FOUC -->
   <script>
     (function() {
       const theme = localStorage.getItem('theme') || 'auto';
       const html = document.documentElement;
       if (theme === 'dark') {
-        html.setAttribute('data-theme', 'dark');
+        html.dataset.theme = 'dark';
       } else if (theme === 'light') {
-        html.setAttribute('data-theme', 'light');
+        html.dataset.theme = 'light';
       }
     })();
   </script>
@@ -215,8 +215,8 @@
     </div>
   </footer>
 
-  <script src="common.js"></script>
-  <script src="pricing.js"></script>
+  <script src="/common.js"></script>
+  <script src="/pricing.js"></script>
 </body>
 </html>
 
